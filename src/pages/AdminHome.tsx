@@ -1,5 +1,5 @@
 // src/pages/AdminHome.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HazardCard } from '../components/hazard/HazardCard';
 import { Footer } from '../components/layout/Footer';
@@ -12,40 +12,30 @@ import {
   Edit3, 
   Trash2,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
+import { 
+  getFirestore, 
+  collection, 
+  getDocs, 
+  doc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy
+} from 'firebase/firestore';
 
-interface Hazard {
+interface Lecture {
   id: string;
   title: string;
-  image: string;
   description: string;
+  content: string;
+  images: string[];
+  createdAt: any;
   isPublished?: boolean;
 }
-
-const initialHazards: Hazard[] = [
-  {
-    id: 'typhoon',
-    title: 'Typhoon',
-    image: 'https://images.unsplash.com/photo-1601110958456-0bee398ce406?...',
-    description: 'Powerful tropical storms with strong winds and heavy rainfall that can cause significant damage.',
-    isPublished: true
-  },
-  {
-    id: 'flooding',
-    title: 'Flooding',
-    image: 'https://images.unsplash.com/photo-1657069343871-fd1476990d04?...',
-    description: 'Water overflow that submerges normally dry land, often caused by heavy rainfall or dam failure.',
-    isPublished: true
-  },
-  {
-    id: 'volcanic',
-    title: 'Volcanic Eruption',
-    image: 'https://images.unsplash.com/photo-1623059570754-5462839e76a7?...',
-    description: 'Explosive release of lava, ash, and gases from volcanic activity that can affect large areas.',
-    isPublished: false
-  }
-];
 
 // Add New Hazard Card Component
 const AddHazardCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
@@ -57,8 +47,8 @@ const AddHazardCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
       <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-200 transition-colors">
         <Plus className="w-8 h-8 text-blue-600" />
       </div>
-      <h3 className="text-xl font-semibold text-gray-700 mb-2">Add New Hazard</h3>
-      <p className="text-gray-500 text-sm">Create a new hazard information card</p>
+      <h3 className="text-xl font-semibold text-gray-700 mb-2">Add New Lecture</h3>
+      <p className="text-gray-500 text-sm">Create a new educational lecture</p>
     </div>
   </div>
 );
@@ -90,19 +80,19 @@ const AdminControls: React.FC = () => (
   </div>
 );
 
-// Enhanced Hazard Card with Admin Controls
-const AdminHazardCard: React.FC<{
-  hazard: Hazard;
+// Enhanced Lecture Card with Admin Controls
+const AdminLectureCard: React.FC<{
+  lecture: Lecture;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onTogglePublish: (id: string) => void;
-}> = ({ hazard, onEdit, onDelete, onTogglePublish }) => (
+}> = ({ lecture, onEdit, onDelete, onTogglePublish }) => (
   <div className="relative group">
     <HazardCard
-      title={hazard.title}
-      image={hazard.image}
-      description={hazard.description}
-      onClick={() => console.log(`Viewing ${hazard.title}`)}
+      title={lecture.title}
+      image={lecture.images[0] || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=300&fit=crop'} // Default image if no images
+      description={lecture.description || lecture.content.substring(0, 100) + '...'}
+      onClick={() => console.log(`Viewing ${lecture.title}`)}
     />
     
     {/* Admin Overlay */}
@@ -110,13 +100,22 @@ const AdminHazardCard: React.FC<{
       {/* Status Badge */}
       <div className="absolute top-3 right-3">
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          hazard.isPublished 
+          lecture.isPublished 
             ? 'bg-green-100 text-green-800 border border-green-200' 
             : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
         }`}>
-          {hazard.isPublished ? 'Published' : 'Draft'}
+          {lecture.isPublished ? 'Published' : 'Draft'}
         </span>
       </div>
+      
+      {/* Image Count Badge */}
+      {lecture.images.length > 0 && (
+        <div className="absolute top-3 left-3">
+          <span className="bg-blue-100 text-blue-800 border border-blue-200 px-2 py-1 rounded-full text-xs font-medium">
+            {lecture.images.length} image{lecture.images.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
       
       {/* Admin Controls */}
       <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -124,17 +123,17 @@ const AdminHazardCard: React.FC<{
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onTogglePublish(hazard.id);
+              onTogglePublish(lecture.id);
             }}
             className="bg-white hover:bg-gray-50 text-gray-700 p-2 rounded-lg shadow-md transition-colors"
-            title={hazard.isPublished ? 'Unpublish' : 'Publish'}
+            title={lecture.isPublished ? 'Unpublish' : 'Publish'}
           >
-            {hazard.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {lecture.isPublished ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onEdit(hazard.id);
+              onEdit(lecture.id);
             }}
             className="bg-white hover:bg-gray-50 text-gray-700 p-2 rounded-lg shadow-md transition-colors"
             title="Edit"
@@ -144,7 +143,7 @@ const AdminHazardCard: React.FC<{
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onDelete(hazard.id);
+              onDelete(lecture.id);
             }}
             className="bg-white hover:bg-red-50 text-red-600 p-2 rounded-lg shadow-md transition-colors"
             title="Delete"
@@ -159,33 +158,97 @@ const AdminHazardCard: React.FC<{
 
 export default function AdminHome() {
   const navigate = useNavigate();
-  const [hazards, setHazards] = useState<Hazard[]>(initialHazards);
+  const [lectures, setLectures] = useState<Lecture[]>([]);
   const [showDrafts, setShowDrafts] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const firestore = getFirestore();
 
-  const handleAddHazard = () => {
-    navigate('/admin/create-lecture');
-  };
-
-  const handleEditHazard = (id: string) => {
-    console.log(`Editing hazard: ${id}`);
-    // Navigate to edit form or open edit modal
-  };
-
-  const handleDeleteHazard = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this hazard?')) {
-      setHazards(hazards.filter(h => h.id !== id));
+  // Fetch lectures from Firestore
+  const fetchLectures = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const lecturesQuery = query(
+        collection(firestore, 'lectures'),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(lecturesQuery);
+      const fetchedLectures: Lecture[] = [];
+      
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        fetchedLectures.push({
+          id: doc.id,
+          title: data.title,
+          description: data.description,
+          content: data.content,
+          images: data.images || [],
+          createdAt: data.createdAt,
+          isPublished: data.isPublished ?? false // Default to false if not set
+        });
+      });
+      
+      setLectures(fetchedLectures);
+    } catch (err) {
+      console.error('Error fetching lectures:', err);
+      setError('Failed to load lectures. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleTogglePublish = (id: string) => {
-    setHazards(hazards.map(h => 
-      h.id === id ? { ...h, isPublished: !h.isPublished } : h
-    ));
+  // Load lectures on component mount
+  useEffect(() => {
+    fetchLectures();
+  }, []);
+
+  const handleAddLecture = () => {
+    navigate('/admin/create-lecture');
   };
 
-  const filteredHazards = showDrafts 
-    ? hazards 
-    : hazards.filter(h => h.isPublished);
+  const handleEditLecture = (id: string) => {
+    console.log(`Editing lecture: ${id}`);
+    // Navigate to edit form or open edit modal
+    // navigate(`/admin/edit-lecture/${id}`);
+  };
+
+  const handleDeleteLecture = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this lecture? This action cannot be undone.')) {
+      try {
+        await deleteDoc(doc(firestore, 'lectures', id));
+        setLectures(lectures.filter(l => l.id !== id));
+      } catch (err) {
+        console.error('Error deleting lecture:', err);
+        setError('Failed to delete lecture. Please try again.');
+      }
+    }
+  };
+
+  const handleTogglePublish = async (id: string) => {
+    const lecture = lectures.find(l => l.id === id);
+    if (!lecture) return;
+
+    try {
+      const newPublishState = !lecture.isPublished;
+      await updateDoc(doc(firestore, 'lectures', id), {
+        isPublished: newPublishState
+      });
+      
+      setLectures(lectures.map(l => 
+        l.id === id ? { ...l, isPublished: newPublishState } : l
+      ));
+    } catch (err) {
+      console.error('Error updating publish status:', err);
+      setError('Failed to update publish status. Please try again.');
+    }
+  };
+
+  const filteredLectures = showDrafts 
+    ? lectures 
+    : lectures.filter(l => l.isPublished);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 relative overflow-hidden">
@@ -198,8 +261,8 @@ export default function AdminHome() {
               <span className="text-blue-600 text-3xl sm:text-4xl ml-2">Admin</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Manage hazard information and disaster preparedness resources. 
-              Create, edit, and publish content to keep your community informed.
+              Manage lectures and disaster preparedness resources. 
+              Create, edit, and publish educational content to keep your community informed.
             </p>
           </div>
         </section>
@@ -211,12 +274,32 @@ export default function AdminHome() {
           </div>
         </section>
 
-        {/* Hazards Management Section */}
-        <section id="hazards" className="py-8 px-4 sm:px-6 lg:px-8">
+        {/* Error Message */}
+        {error && (
+          <section className="px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <p className="text-red-800">{error}</p>
+                  <button
+                    onClick={fetchLectures}
+                    className="ml-auto text-red-600 hover:text-red-800 underline"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Lectures Management Section */}
+        <section id="lectures" className="py-8 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-12">
               <div>
-                <h2 className="text-3xl font-semibold text-gray-900 mb-4">Manage Hazards</h2>
+                <h2 className="text-3xl font-semibold text-gray-900 mb-4">Manage Lectures</h2>
                 <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-green-500 rounded-full"></div>
               </div>
               
@@ -228,30 +311,47 @@ export default function AdminHome() {
                     onChange={(e) => setShowDrafts(e.target.checked)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">Show drafts</span>
+                  <span className="text-sm text-gray-700">Show Drafts</span>
                 </label>
                 
                 <div className="text-sm text-gray-500">
-                  {filteredHazards.length} hazard{filteredHazards.length !== 1 ? 's' : ''}
+                  {isLoading ? 'Loading...' : `${filteredLectures.length} lecture${filteredLectures.length !== 1 ? 's' : ''}`}
                 </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {/* Add New Hazard Card */}
-              <AddHazardCard onClick={handleAddHazard} />
-              
-              {/* Existing Hazards */}
-              {filteredHazards.map((hazard) => (
-                <AdminHazardCard
-                  key={hazard.id}
-                  hazard={hazard}
-                  onEdit={handleEditHazard}
-                  onDelete={handleDeleteHazard}
-                  onTogglePublish={handleTogglePublish}
-                />
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="ml-2 text-gray-600">Loading Lectures...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {/* Add New Lecture Card */}
+                <AddHazardCard onClick={handleAddLecture} />
+                
+                {/* Existing Lectures */}
+                {filteredLectures.length === 0 && !isLoading ? (
+                  <div className="col-span-2 text-center py-12">
+                    <p className="text-gray-500">
+                      {showDrafts 
+                        ? 'No lectures found. Create your first lecture!' 
+                        : 'No published lectures found.'}
+                    </p>
+                  </div>
+                ) : (
+                  filteredLectures.map((lecture) => (
+                    <AdminLectureCard
+                      key={lecture.id}
+                      lecture={lecture}
+                      onEdit={handleEditLecture}
+                      onDelete={handleDeleteLecture}
+                      onTogglePublish={handleTogglePublish}
+                    />
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </section>
       </main>
