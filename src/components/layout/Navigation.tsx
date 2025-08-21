@@ -1,7 +1,7 @@
 // src/components/layout/Navigation.tsx
 import React, { useState } from 'react';
 import { Link } from "react-router-dom";
-import { Menu, X, User, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, X, User, LogOut, ChevronDown, Settings } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function Navigation() {
@@ -63,6 +63,14 @@ export function Navigation() {
                         <p className="font-medium">{currentUser.displayName}</p>
                         <p className="text-gray-500 truncate">{currentUser.email}</p>
                       </div>
+                      <Link
+                        to="/admin"
+                        onClick={() => setShowUserMenu(false)}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      >
+                        <Settings className="w-4 h-4" />
+                        <span>Admin Panel</span>
+                      </Link>
                       <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
@@ -145,6 +153,14 @@ export function Navigation() {
                       <p className="text-sm font-medium text-gray-900">{currentUser.displayName}</p>
                       <p className="text-sm text-gray-500 truncate">{currentUser.email}</p>
                     </div>
+                    <Link
+                      to="/admin"
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center space-x-2 px-3 py-2 text-gray-900 hover:text-blue-600 text-base font-medium w-full text-left"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Admin Panel</span>
+                    </Link>
                     <button
                       onClick={() => {
                         handleLogout();
