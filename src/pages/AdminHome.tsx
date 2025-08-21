@@ -1,5 +1,6 @@
 // src/pages/AdminHome.tsx
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { HazardCard } from '../components/hazard/HazardCard';
 import { Footer } from '../components/layout/Footer';
 import { 
@@ -157,12 +158,12 @@ const AdminHazardCard: React.FC<{
 );
 
 export default function AdminHome() {
+  const navigate = useNavigate();
   const [hazards, setHazards] = useState<Hazard[]>(initialHazards);
   const [showDrafts, setShowDrafts] = useState(true);
 
   const handleAddHazard = () => {
-    console.log('Opening add hazard modal...');
-    // Here you would typically open a modal or navigate to an add form
+    navigate('/admin/create-lecture');
   };
 
   const handleEditHazard = (id: string) => {
