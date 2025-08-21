@@ -11,6 +11,8 @@ import {
   Eye
 } from 'lucide-react';
 
+import LectureTab from '../components/hazard/LectureTab';
+
 interface TabItem {
   id: string;
   label: string;
@@ -106,10 +108,16 @@ const TabNavigation: React.FC<{
   </div>
 );
 
-// Tab Content Placeholder Component
-const TabContentPlaceholder: React.FC<{
+// Updated Tab Content Component that renders the actual content
+const TabContent: React.FC<{
   activeTab: string;
 }> = ({ activeTab }) => {
+  // Render the LectureTab component when lecture tab is active
+  if (activeTab === 'lecture') {
+    return <LectureTab />;
+  }
+  
+  // For other tabs, show placeholder content (you'll replace these later)
   const currentTab = tabs.find(tab => tab.id === activeTab);
   
   const getTabIcon = (tabId: string) => {
@@ -176,7 +184,7 @@ const ProgressIndicator: React.FC<{
   </div>
 );
 
-export default function CreateLecture() {
+export default function AdminCreateLecture() {
   const [activeTab, setActiveTab] = useState<string>('lecture');
 
   const getCurrentStepNumber = () => {
@@ -203,7 +211,7 @@ export default function CreateLecture() {
       
       {/* Main Content Area */}
       <main className="flex-1 py-8">
-        <TabContentPlaceholder activeTab={activeTab} />
+        <TabContent activeTab={activeTab} />
       </main>
 
       <Footer />
