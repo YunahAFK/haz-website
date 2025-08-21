@@ -261,8 +261,8 @@ export default function AdminHome() {
               <span className="text-blue-600 text-3xl sm:text-4xl ml-2">Admin</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Manage lectures and disaster preparedness resources. 
-              Create, edit, and publish educational content to keep your community informed.
+              manage lectures and learning resources. 
+              create, edit, and publish educational content to keep your community informed.
             </p>
           </div>
         </section>
