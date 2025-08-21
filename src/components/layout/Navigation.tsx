@@ -43,7 +43,7 @@ export function Navigation() {
                 Alerts
               </Link>
             </div>
-            
+
             {/* Authentication Section */}
             <div className="ml-4">
               {currentUser ? (
@@ -76,19 +76,20 @@ export function Navigation() {
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                       >
                         <LogOut className="w-4 h-4" />
-                        <span>Sign out</span>
+                        <span>Logout</span>
                       </button>
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">
-                  <Link 
-                    to="/login" 
+                  <Link
+                    to="/login"
                     className="px-3 py-2 text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors"
                   >
-                    Sign in
+                    Login
                   </Link>
+                  {/* 
                   <Link 
                     to="/signup" 
                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
@@ -96,6 +97,7 @@ export function Navigation() {
                     <User className="w-4 h-4 mr-2" />
                     Sign up
                   </Link>
+                  */}
                 </div>
               )}
             </div>
@@ -116,29 +118,29 @@ export function Navigation() {
         {isOpen && (
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 border-t border-gray-200">
-              <Link 
-                to="/" 
+              <Link
+                to="/"
                 className="text-gray-900 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
                 onClick={() => setIsOpen(false)}
               >
                 Home
               </Link>
-              <Link 
-                to="/hazards" 
+              <Link
+                to="/hazards"
                 className="text-gray-900 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
                 onClick={() => setIsOpen(false)}
               >
                 Hazards
               </Link>
-              <Link 
-                to="/preparedness" 
+              <Link
+                to="/preparedness"
                 className="text-gray-900 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
                 onClick={() => setIsOpen(false)}
               >
                 Preparedness
               </Link>
-              <Link 
-                to="/alerts" 
+              <Link
+                to="/alerts"
                 className="text-gray-900 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
                 onClick={() => setIsOpen(false)}
               >
@@ -169,27 +171,29 @@ export function Navigation() {
                       className="flex items-center space-x-2 px-3 py-2 text-gray-900 hover:text-blue-600 text-base font-medium w-full text-left"
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>Sign out</span>
+                      <span>Logout</span>
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    <Link 
-                      to="/login" 
+                    <Link
+                      to="/login"
                       className="flex items-center space-x-2 px-3 py-2 text-gray-900 hover:text-blue-600 text-base font-medium"
                       onClick={() => setIsOpen(false)}
                     >
                       <User className="w-4 h-4" />
-                      <span>Sign in</span>
+                      <span>Login</span>
                     </Link>
-                    <Link 
-                      to="/signup" 
+                    {/*
+                    <Link
+                      to="/signup"
                       className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-base font-medium mx-3 transition-colors"
                       onClick={() => setIsOpen(false)}
                     >
                       <User className="w-4 h-4" />
                       <span>Sign up</span>
                     </Link>
+                    */}
                   </div>
                 )}
               </div>
