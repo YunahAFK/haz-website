@@ -90,7 +90,7 @@ const AdminLectureCard: React.FC<{
   <div className="relative group">
     <HazardCard
       title={lecture.title}
-      image={lecture.images[0] || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=300&fit=crop'} // Default image if no images
+      image={lecture.images[0] || 'https://images.unsplash.com/photo-1689344683256-40b734b440e7?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'} // default image if no images
       description={lecture.description || lecture.content.substring(0, 100) + '...'}
       onClick={() => console.log(`Viewing ${lecture.title}`)}
     />
