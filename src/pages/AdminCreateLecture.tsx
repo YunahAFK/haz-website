@@ -1,5 +1,5 @@
 // src/pages/AdminCreateLecture.tsx
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, createContext, useContext, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Footer } from '../components/layout/Footer';
 import {
@@ -10,11 +10,13 @@ import {
     ArrowLeft,
     Save,
     Eye,
-    Info
+    Info,
+    Globe
 } from 'lucide-react';
 
 import InfoTab from '../components/hazard/InfoTab';
 import ContentTab from '../components/hazard/ContentTab';
+import ActivityTab from '../components/hazard/ActivityTab';
 
 interface TabItem {
     id: string;
@@ -58,11 +60,21 @@ const tabs: TabItem[] = [
 
 // Context for sharing lecture data between tabs
 interface LectureContextType {
+    // Core state
     lectureId: string | null;
     setLectureId: (id: string) => void;
     activeTab: string;
     setActiveTab: (tab: string) => void;
     navigateToNextTab: () => void;
+    
+    // Tab action registration
+    saveDraft: () => Promise<void>;
+    publish: () => Promise<void>;
+    registerTabActions: (actions: {
+        saveDraft?: () => Promise<void>;
+        publish?: () => Promise<void>;
+    }) => void;
+    unregisterTabActions: () => void;
 }
 
 const LectureContext = createContext<LectureContextType | undefined>(undefined);
@@ -78,7 +90,38 @@ export const useLectureContext = () => {
 // Header Component
 const CreateLectureHeader: React.FC = () => {
     const navigate = useNavigate();
-    const { activeTab, lectureId } = useLectureContext();
+    const { activeTab, lectureId, saveDraft, publish } = useLectureContext();
+    const [isLoading, setIsLoading] = useState(false);
+    
+    const handlePreview = () => {
+        if (lectureId) {
+            window.open(`/lecture/${lectureId}`, '_blank');
+        }
+    };
+
+    const handleSaveDraft = async () => {
+        if (!lectureId) return;
+        setIsLoading(true);
+        try {
+            await saveDraft();
+        } catch (error) {
+            console.error('Error saving draft:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handlePublish = async () => {
+        if (!lectureId) return;
+        setIsLoading(true);
+        try {
+            await publish();
+        } catch (error) {
+            console.error('Error publishing:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
     
     return (
         <div className="bg-white shadow-sm border-b border-gray-200">
@@ -105,16 +148,29 @@ const CreateLectureHeader: React.FC = () => {
                     <div className="flex items-center space-x-3">
                         {activeTab === 'content' && lectureId && (
                             <>
-                                <button className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
+                                <button 
+                                    onClick={handlePreview}
+                                    disabled={isLoading}
+                                    className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
                                     <Eye className="w-4 h-4" />
                                     <span>Preview</span>
                                 </button>
-                                <button className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                <button 
+                                    onClick={handleSaveDraft}
+                                    disabled={isLoading}
+                                    className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
                                     <Save className="w-4 h-4" />
-                                    <span>Save Draft</span>
+                                    <span>{isLoading ? 'Saving...' : 'Save Draft'}</span>
                                 </button>
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-medium">
-                                    Publish
+                                <button 
+                                    onClick={handlePublish}
+                                    disabled={isLoading}
+                                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Globe className="w-4 h-4" />
+                                    <span>{isLoading ? 'Publishing...' : 'Publish'}</span>
                                 </button>
                             </>
                         )}
@@ -161,34 +217,20 @@ const TabNavigation: React.FC = () => {
     );
 };
 
-// Updated Tab Content Component
+// Tab Content Component
 const TabContent: React.FC = () => {
     const { activeTab, lectureId } = useLectureContext();
     
-    // Render specific tab components
     if (activeTab === 'info') {
         return <InfoTab />;
     }
     
     if (activeTab === 'content') {
-        if (!lectureId) {
-            return (
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="text-center">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <BookOpen className="w-8 h-8 text-gray-400" />
-                        </div>
-                        <h2 className="text-2xl font-semibold text-gray-900 mb-3">
-                            Content Tab
-                        </h2>
-                        <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                            Please create the lecture info first before accessing the content tab.
-                        </p>
-                    </div>
-                </div>
-            );
-        }
         return <ContentTab />;
+    }
+
+    if (activeTab === 'activity') {
+        return <ActivityTab />;
     }
 
     // For other tabs, show placeholder content
@@ -272,20 +314,54 @@ const ProgressIndicator: React.FC = () => {
 export default function AdminCreateLecture() {
     const [activeTab, setActiveTab] = useState<string>('info');
     const [lectureId, setLectureId] = useState<string | null>(null);
+    
+    // Tab action registry
+    const [tabActions, setTabActions] = useState<{
+        saveDraft?: () => Promise<void>;
+        publish?: () => Promise<void>;
+    }>({});
 
-    const navigateToNextTab = () => {
+    const navigateToNextTab = useCallback(() => {
         const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
         if (currentIndex < tabs.length - 1) {
             setActiveTab(tabs[currentIndex + 1].id);
         }
-    };
+    }, [activeTab]);
+
+    // Default implementations for when no tab actions are registered
+    const defaultSaveDraft = useCallback(async () => {
+        console.warn('No saveDraft action registered for current tab');
+    }, []);
+
+    const defaultPublish = useCallback(async () => {
+        console.warn('No publish action registered for current tab');
+    }, []);
+
+    // Action registration methods
+    const registerTabActions = useCallback((actions: {
+        saveDraft?: () => Promise<void>;
+        publish?: () => Promise<void>;
+    }) => {
+        setTabActions(actions);
+    }, []);
+
+    const unregisterTabActions = useCallback(() => {
+        setTabActions({});
+    }, []);
 
     const lectureContextValue: LectureContextType = {
+        // Core state
         lectureId,
         setLectureId,
         activeTab,
         setActiveTab,
-        navigateToNextTab
+        navigateToNextTab,
+        
+        // Tab actions (use registered actions or defaults)
+        saveDraft: tabActions.saveDraft || defaultSaveDraft,
+        publish: tabActions.publish || defaultPublish,
+        registerTabActions,
+        unregisterTabActions
     };
 
     return (

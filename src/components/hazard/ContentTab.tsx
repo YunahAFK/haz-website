@@ -1,15 +1,13 @@
 // src/components/hazard/ContentTab.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Upload, 
   X, 
   Image as ImageIcon, 
-  Save, 
   Loader2,
   AlertCircle,
   CheckCircle,
-  Eye,
-  Globe
+  ArrowRight
 } from 'lucide-react';
 
 import { 
@@ -52,7 +50,12 @@ interface UploadedImage {
 }
 
 const ContentTab: React.FC = () => {
-  const { lectureId } = useLectureContext();
+  const { 
+    lectureId, 
+    setActiveTab, 
+    registerTabActions, 
+    unregisterTabActions 
+  } = useLectureContext();
   
   const [lectureData, setLectureData] = useState<LectureData>({
     title: '',
@@ -66,8 +69,6 @@ const ContentTab: React.FC = () => {
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: 'success' | 'error' | null;
     message: string;
@@ -83,6 +84,102 @@ const ContentTab: React.FC = () => {
     }
   }, [lectureId]);
 
+  // Register tab actions when component mounts
+  useEffect(() => {
+    const saveDraftAction = async () => {
+      if (!lectureId) {
+        throw new Error('No lecture ID available');
+      }
+      
+      try {
+        const docRef = doc(firestore, 'lectures', lectureId);
+        await updateDoc(docRef, {
+          content: lectureData.content || '',
+          images: lectureData.images || [],
+          status: 'draft',
+          updatedAt: serverTimestamp()
+        });
+        
+        setSubmitStatus({
+          type: 'success',
+          message: 'Draft saved successfully!'
+        });
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSubmitStatus({ type: null, message: '' });
+        }, 3000);
+        
+      } catch (error) {
+        console.error('Error saving draft:', error);
+        setSubmitStatus({
+          type: 'error',
+          message: 'Failed to save draft. Please try again.'
+        });
+        throw error;
+      }
+    };
+
+    const publishAction = async () => {
+      if (!lectureId) {
+        throw new Error('No lecture ID available');
+      }
+      
+      if (!lectureData.content || !lectureData.content.trim()) {
+        setSubmitStatus({
+          type: 'error',
+          message: 'Please add content before publishing.'
+        });
+        throw new Error('Content is required for publishing');
+      }
+      
+      try {
+        const docRef = doc(firestore, 'lectures', lectureId);
+        await updateDoc(docRef, {
+          content: lectureData.content || '',
+          images: lectureData.images || [],
+          status: 'published',
+          updatedAt: serverTimestamp()
+        });
+        
+        // Update local state to reflect published status
+        setLectureData(prev => ({
+          ...prev,
+          status: 'published'
+        }));
+        
+        setSubmitStatus({
+          type: 'success',
+          message: 'Lecture published successfully!'
+        });
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSubmitStatus({ type: null, message: '' });
+        }, 3000);
+        
+      } catch (error) {
+        console.error('Error publishing lecture:', error);
+        setSubmitStatus({
+          type: 'error',
+          message: 'Failed to publish lecture. Please try again.'
+        });
+        throw error;
+      }
+    };
+
+    // Register actions with context
+    registerTabActions({
+      saveDraft: saveDraftAction,
+      publish: publishAction
+    });
+
+    // Cleanup: unregister actions when component unmounts
+    return () => {
+      unregisterTabActions();
+    };
+  }, [lectureId, lectureData.content, lectureData.images, firestore, registerTabActions, unregisterTabActions]);
+
   const fetchLectureData = async () => {
     if (!lectureId) return;
 
@@ -93,7 +190,17 @@ const ContentTab: React.FC = () => {
       
       if (docSnap.exists()) {
         const data = docSnap.data() as LectureData;
-        setLectureData(data);
+        // Ensure all fields have default values
+        setLectureData({
+          title: data.title || '',
+          description: data.description || '',
+          image: data.image || '',
+          content: data.content || '',
+          images: data.images || [],
+          status: data.status || 'draft',
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt
+        });
         console.log('Lecture data loaded:', data);
       } else {
         setSubmitStatus({
@@ -249,102 +356,24 @@ const ContentTab: React.FC = () => {
     });
   };
 
-  const saveDraft = async () => {
-    if (!lectureId) return;
-
-    const stillUploading = uploadedImages.some(img => img.uploading);
-    if (stillUploading) {
-      setSubmitStatus({
-        type: 'error',
-        message: 'Please wait for all images to finish uploading.'
-      });
-      return;
+  const handleNextToActivity = async () => {
+    // Auto-save content as draft before navigating
+    if (lectureId && lectureData.content && lectureData.content.trim()) {
+      try {
+        const docRef = doc(firestore, 'lectures', lectureId);
+        await updateDoc(docRef, {
+          content: lectureData.content,
+          images: lectureData.images || [],
+          updatedAt: serverTimestamp()
+        });
+        console.log('Content auto-saved before navigation');
+      } catch (error) {
+        console.error('Error auto-saving content:', error);
+      }
     }
-
-    setIsSaving(true);
-    setSubmitStatus({ type: null, message: '' });
-
-    try {
-      const docRef = doc(firestore, 'lectures', lectureId);
-      await updateDoc(docRef, {
-        content: lectureData.content,
-        images: lectureData.images,
-        status: 'draft',
-        updatedAt: serverTimestamp()
-      });
-
-      setSubmitStatus({
-        type: 'success',
-        message: 'Draft saved successfully!'
-      });
-
-      console.log('Draft saved for lecture ID:', lectureId);
-
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      setSubmitStatus({
-        type: 'error',
-        message: 'Failed to save draft. Please try again.'
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const publishLecture = async () => {
-    if (!lectureId) return;
-
-    if (!lectureData.content.trim()) {
-      setSubmitStatus({
-        type: 'error',
-        message: 'Please add content before publishing.'
-      });
-      return;
-    }
-
-    const stillUploading = uploadedImages.some(img => img.uploading);
-    if (stillUploading) {
-      setSubmitStatus({
-        type: 'error',
-        message: 'Please wait for all images to finish uploading.'
-      });
-      return;
-    }
-
-    setIsPublishing(true);
-    setSubmitStatus({ type: null, message: '' });
-
-    try {
-      const docRef = doc(firestore, 'lectures', lectureId);
-      await updateDoc(docRef, {
-        content: lectureData.content,
-        images: lectureData.images,
-        status: 'published',
-        publishedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      setLectureData(prev => ({
-        ...prev,
-        status: 'published'
-      }));
-
-      setSubmitStatus({
-        type: 'success',
-        message: 'Lecture published successfully!'
-      });
-
-      console.log('Lecture published with ID:', lectureId);
-
-    } catch (error) {
-      console.error('Error publishing lecture:', error);
-      setSubmitStatus({
-        type: 'error',
-        message: 'Failed to publish lecture. Please try again.'
-      });
-    } finally {
-      setIsPublishing(false);
-    }
+    
+    // Navigate to activity tab
+    setActiveTab('activity');
   };
 
   if (isLoading) {
@@ -368,7 +397,7 @@ const ContentTab: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Lecture Content</h2>
-              <p className="text-gray-600">edit and manage your lecture content, images, and materials.</p>
+              <p className="text-gray-600">Edit and manage your lecture content, images, and materials.</p>
             </div>
             <div className="flex items-center space-x-2">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -515,43 +544,15 @@ const ContentTab: React.FC = () => {
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-between pt-6 border-t border-gray-200">
+          {/* Navigation Button */}
+          <div className="flex justify-end pt-6 border-t border-gray-200">
             <button
-              onClick={() => window.open(`/lecture/${lectureId}`, '_blank')}
-              className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              onClick={handleNextToActivity}
+              className="inline-flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
-              <Eye className="w-4 h-4 mr-2" />
-              Preview
+              <span>Next: Activity</span>
+              <ArrowRight className="w-4 h-4 ml-2" />
             </button>
-            
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={saveDraft}
-                disabled={isSaving}
-                className="inline-flex items-center px-6 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                {isSaving ? 'Saving...' : 'Save Draft'}
-              </button>
-              
-              <button
-                onClick={publishLecture}
-                disabled={isPublishing}
-                className="inline-flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                {isPublishing ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Globe className="w-4 h-4 mr-2" />
-                )}
-                {isPublishing ? 'Publishing...' : 'Publish'}
-              </button>
-            </div>
           </div>
         </div>
       </div>
