@@ -1,5 +1,5 @@
-// src/components/hazard/LectureTab.tsx
-import React, { useState } from 'react';
+// src/components/hazard/ContentTab.tsx
+import React, { useState, useEffect } from 'react';
 import { 
   Upload, 
   X, 
@@ -7,7 +7,9 @@ import {
   Save, 
   Loader2,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Eye,
+  Globe
 } from 'lucide-react';
 
 import { 
@@ -18,17 +20,23 @@ import {
 } from 'firebase/storage';
 import { 
   getFirestore, 
-  collection, 
-  addDoc, 
+  doc, 
+  getDoc,
+  updateDoc,
   serverTimestamp 
 } from 'firebase/firestore';
+
+import { useLectureContext } from '../../pages/AdminCreateLecture';
 
 interface LectureData {
   title: string;
   description: string;
+  image: string;
   content: string;
   images: string[];
+  status: 'draft' | 'published';
   createdAt?: any;
+  updatedAt?: any;
 }
 
 interface UploadProgress {
@@ -43,17 +51,23 @@ interface UploadedImage {
   error?: string;
 }
 
-const LectureTab: React.FC = () => {
+const ContentTab: React.FC = () => {
+  const { lectureId } = useLectureContext();
+  
   const [lectureData, setLectureData] = useState<LectureData>({
     title: '',
     description: '',
+    image: '',
     content: '',
-    images: []
+    images: [],
+    status: 'draft'
   });
 
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: 'success' | 'error' | null;
     message: string;
@@ -61,6 +75,42 @@ const LectureTab: React.FC = () => {
 
   const storage = getStorage();
   const firestore = getFirestore();
+
+  // Fetch lecture data when component mounts
+  useEffect(() => {
+    if (lectureId) {
+      fetchLectureData();
+    }
+  }, [lectureId]);
+
+  const fetchLectureData = async () => {
+    if (!lectureId) return;
+
+    setIsLoading(true);
+    try {
+      const docRef = doc(firestore, 'lectures', lectureId);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data() as LectureData;
+        setLectureData(data);
+        console.log('Lecture data loaded:', data);
+      } else {
+        setSubmitStatus({
+          type: 'error',
+          message: 'Lecture not found.'
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching lecture data:', error);
+      setSubmitStatus({
+        type: 'error',
+        message: 'Failed to load lecture data.'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleInputChange = (field: keyof LectureData, value: string) => {
     setLectureData(prev => ({
@@ -109,7 +159,7 @@ const LectureTab: React.FC = () => {
 
   const uploadImageToFirebase = async (file: File, imageId: string) => {
     try {
-      const storageRef = ref(storage, `lectures/images/${imageId}_${file.name}`);
+      const storageRef = ref(storage, `lectures/content-images/${imageId}_${file.name}`);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
       uploadTask.on('state_changed',
@@ -199,19 +249,55 @@ const LectureTab: React.FC = () => {
     });
   };
 
-  const handleSubmit = async () => {
-    if (!lectureData.title.trim()) {
+  const saveDraft = async () => {
+    if (!lectureId) return;
+
+    const stillUploading = uploadedImages.some(img => img.uploading);
+    if (stillUploading) {
       setSubmitStatus({
         type: 'error',
-        message: 'Please enter a lecture title.'
+        message: 'Please wait for all images to finish uploading.'
       });
       return;
     }
 
+    setIsSaving(true);
+    setSubmitStatus({ type: null, message: '' });
+
+    try {
+      const docRef = doc(firestore, 'lectures', lectureId);
+      await updateDoc(docRef, {
+        content: lectureData.content,
+        images: lectureData.images,
+        status: 'draft',
+        updatedAt: serverTimestamp()
+      });
+
+      setSubmitStatus({
+        type: 'success',
+        message: 'Draft saved successfully!'
+      });
+
+      console.log('Draft saved for lecture ID:', lectureId);
+
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      setSubmitStatus({
+        type: 'error',
+        message: 'Failed to save draft. Please try again.'
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const publishLecture = async () => {
+    if (!lectureId) return;
+
     if (!lectureData.content.trim()) {
       setSubmitStatus({
         type: 'error',
-        message: 'Please enter lecture content.'
+        message: 'Please add content before publishing.'
       });
       return;
     }
@@ -225,48 +311,81 @@ const LectureTab: React.FC = () => {
       return;
     }
 
-    setIsSubmitting(true);
+    setIsPublishing(true);
     setSubmitStatus({ type: null, message: '' });
 
     try {
-      const docRef = await addDoc(collection(firestore, 'lectures'), {
-        ...lectureData,
-        createdAt: serverTimestamp()
+      const docRef = doc(firestore, 'lectures', lectureId);
+      await updateDoc(docRef, {
+        content: lectureData.content,
+        images: lectureData.images,
+        status: 'published',
+        publishedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
 
-      console.log('Lecture created with ID:', docRef.id);
+      setLectureData(prev => ({
+        ...prev,
+        status: 'published'
+      }));
 
       setSubmitStatus({
         type: 'success',
-        message: 'Lecture created successfully!'
+        message: 'Lecture published successfully!'
       });
 
-      setLectureData({
-        title: '',
-        description: '',
-        content: '',
-        images: []
-      });
-      setUploadedImages([]);
+      console.log('Lecture published with ID:', lectureId);
 
     } catch (error) {
-      console.error('Error creating lecture:', error);
+      console.error('Error publishing lecture:', error);
       setSubmitStatus({
         type: 'error',
-        message: 'Failed to create lecture. Please try again.'
+        message: 'Failed to publish lecture. Please try again.'
       });
     } finally {
-      setIsSubmitting(false);
+      setIsPublishing(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mr-3" />
+            <span className="text-lg text-gray-600">Loading lecture data...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         {/* Header */}
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Create New Lecture</h2>
-          <p className="text-gray-600">add educational content, images, and materials for your lecture.</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Lecture Content</h2>
+              <p className="text-gray-600">edit and manage your lecture content, images, and materials.</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                lectureData.status === 'published' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-yellow-100 text-yellow-800'
+              }`}>
+                {lectureData.status === 'published' ? 'Published' : 'Draft'}
+              </span>
+            </div>
+          </div>
+          
+          {/* Lecture Info Display */}
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-2">{lectureData.title}</h3>
+            <p className="text-sm text-gray-600">{lectureData.description}</p>
+          </div>
         </div>
 
         {/* Status Messages */}
@@ -289,38 +408,7 @@ const LectureTab: React.FC = () => {
           </div>
         )}
 
-        <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
-          {/* Title Input */}
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-              Lecture Title *
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={lectureData.title}
-              onChange={(e) => handleInputChange('title', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="enter lecture title..."
-              required
-            />
-          </div>
-
-          {/* Description Input */}
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              id="description"
-              value={lectureData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              placeholder="brief description of the lecture..."
-            />
-          </div>
-
+        <div className="space-y-6">
           {/* Content Input */}
           <div>
             <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
@@ -330,17 +418,16 @@ const LectureTab: React.FC = () => {
               id="content"
               value={lectureData.content}
               onChange={(e) => handleInputChange('content', e.target.value)}
-              rows={12}
+              rows={15}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
-              placeholder="enter your lecture content here..."
-              required
+              placeholder="Enter your lecture content here..."
             />
           </div>
 
           {/* Image Upload Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Images
+              Content Images
             </label>
             
             {/* Upload Button */}
@@ -357,7 +444,7 @@ const LectureTab: React.FC = () => {
                 />
               </label>
               <p className="text-xs text-gray-500 mt-1">
-                supported formats: JPG, PNG, GIF. maximum size: 5MB per image.
+                Supported formats: JPG, PNG, GIF. Maximum size: 5MB per image.
               </p>
             </div>
 
@@ -428,25 +515,48 @@ const LectureTab: React.FC = () => {
             )}
           </div>
 
-          {/* Submit Button */}
-          <div className="flex justify-end pt-6 border-t border-gray-200">
+          {/* Action Buttons */}
+          <div className="flex justify-between pt-6 border-t border-gray-200">
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              onClick={() => window.open(`/lecture/${lectureId}`, '_blank')}
+              className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
             >
-              {isSubmitting ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4 mr-2" />
-              )}
-              {isSubmitting ? 'Creating Lecture...' : 'Create Lecture'}
+              <Eye className="w-4 h-4 mr-2" />
+              Preview
             </button>
+            
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={saveDraft}
+                disabled={isSaving}
+                className="inline-flex items-center px-6 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              >
+                {isSaving ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                {isSaving ? 'Saving...' : 'Save Draft'}
+              </button>
+              
+              <button
+                onClick={publishLecture}
+                disabled={isPublishing}
+                className="inline-flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                {isPublishing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Globe className="w-4 h-4 mr-2" />
+                )}
+                {isPublishing ? 'Publishing...' : 'Publish'}
+              </button>
+            </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 };
 
-export default LectureTab;
+export default ContentTab;
