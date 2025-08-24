@@ -1,30 +1,15 @@
 // src/components/hazard/ContentTab.tsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Upload, 
-  X, 
-  Image as ImageIcon, 
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  ArrowRight
-} from 'lucide-react';
-
-import { 
-  getStorage, 
-  ref, 
-  uploadBytesResumable, 
-  getDownloadURL 
-} from 'firebase/storage';
-import { 
-  getFirestore, 
-  doc, 
-  getDoc,
-  updateDoc,
-  serverTimestamp 
-} from 'firebase/firestore';
-
+import React, { useState, useEffect } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { useLectureContext } from '../../pages/AdminCreateLecture';
+import { useStatusMessage } from '../../hooks/useStatusMessage';
+import { useImageUpload, UploadedImage } from '../../hooks/useImageUpload';
+import { useFirestore } from '../../hooks/useFirestore';
+import { StatusMessage } from '../common/StatusMessage';
+import { ImageUploadPreview } from '../common/ImageUploadPreview';
+import { FileUploadButton } from '../common/FileUploadButton';
+import { FormInput } from '../common/FormInput';
+import { LoadingSpinner } from '../common/LoadingSpinner';
 
 interface LectureData {
   title: string;
@@ -35,18 +20,6 @@ interface LectureData {
   status: 'draft' | 'published';
   createdAt?: any;
   updatedAt?: any;
-}
-
-interface UploadProgress {
-  [key: string]: number;
-}
-
-interface UploadedImage {
-  file: File;
-  url: string | null;
-  id: string;
-  uploading: boolean;
-  error?: string;
 }
 
 const ContentTab: React.FC = () => {
@@ -65,17 +38,22 @@ const ContentTab: React.FC = () => {
     images: [],
     status: 'draft'
   });
-
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [submitStatus, setSubmitStatus] = useState<{
-    type: 'success' | 'error' | null;
-    message: string;
-  }>({ type: null, message: '' });
 
-  const storage = getStorage();
-  const firestore = getFirestore();
+  const { status, setStatusMessage, clearStatus } = useStatusMessage();
+  const { updateDocument, getDocument } = useFirestore();
+  
+  const { validateFile, uploadToFirebase, getProgress } = useImageUpload({
+    storagePath: 'lectures/content-images',
+    onSuccess: (url) => {
+      setLectureData(prev => ({
+        ...prev,
+        images: [...prev.images, url]
+      }));
+    },
+    onError: (error) => setStatusMessage('error', error, false)
+  });
 
   // Fetch lecture data when component mounts
   useEffect(() => {
@@ -86,111 +64,27 @@ const ContentTab: React.FC = () => {
 
   // Register tab actions when component mounts
   useEffect(() => {
-    const saveDraftAction = async () => {
-      if (!lectureId) {
-        throw new Error('No lecture ID available');
-      }
-      
-      try {
-        const docRef = doc(firestore, 'lectures', lectureId);
-        await updateDoc(docRef, {
-          content: lectureData.content || '',
-          images: lectureData.images || [],
-          status: 'draft',
-          updatedAt: serverTimestamp()
-        });
-        
-        setSubmitStatus({
-          type: 'success',
-          message: 'Draft saved successfully!'
-        });
-        
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          setSubmitStatus({ type: null, message: '' });
-        }, 3000);
-        
-      } catch (error) {
-        console.error('Error saving draft:', error);
-        setSubmitStatus({
-          type: 'error',
-          message: 'Failed to save draft. Please try again.'
-        });
-        throw error;
-      }
-    };
+    if (!lectureId) return;
 
-    const publishAction = async () => {
-      if (!lectureId) {
-        throw new Error('No lecture ID available');
-      }
-      
-      if (!lectureData.content || !lectureData.content.trim()) {
-        setSubmitStatus({
-          type: 'error',
-          message: 'Please add content before publishing.'
-        });
-        throw new Error('Content is required for publishing');
-      }
-      
-      try {
-        const docRef = doc(firestore, 'lectures', lectureId);
-        await updateDoc(docRef, {
-          content: lectureData.content || '',
-          images: lectureData.images || [],
-          status: 'published',
-          updatedAt: serverTimestamp()
-        });
-        
-        // Update local state to reflect published status
-        setLectureData(prev => ({
-          ...prev,
-          status: 'published'
-        }));
-        
-        setSubmitStatus({
-          type: 'success',
-          message: 'Lecture published successfully!'
-        });
-        
-        // Clear success message after 3 seconds
-        setTimeout(() => {
-          setSubmitStatus({ type: null, message: '' });
-        }, 3000);
-        
-      } catch (error) {
-        console.error('Error publishing lecture:', error);
-        setSubmitStatus({
-          type: 'error',
-          message: 'Failed to publish lecture. Please try again.'
-        });
-        throw error;
-      }
-    };
+    const saveDraftAction = () => saveLecture('draft');
+    const publishAction = () => saveLecture('published');
 
-    // Register actions with context
     registerTabActions({
       saveDraft: saveDraftAction,
       publish: publishAction
     });
 
-    // Cleanup: unregister actions when component unmounts
-    return () => {
-      unregisterTabActions();
-    };
-  }, [lectureId, lectureData.content, lectureData.images, firestore, registerTabActions, unregisterTabActions]);
+    return () => unregisterTabActions();
+  }, [lectureId, lectureData.content, lectureData.images, registerTabActions, unregisterTabActions]);
 
   const fetchLectureData = async () => {
     if (!lectureId) return;
 
     setIsLoading(true);
     try {
-      const docRef = doc(firestore, 'lectures', lectureId);
-      const docSnap = await getDoc(docRef);
+      const data = await getDocument('lectures', lectureId) as LectureData;
       
-      if (docSnap.exists()) {
-        const data = docSnap.data() as LectureData;
-        // Ensure all fields have default values
+      if (data) {
         setLectureData({
           title: data.title || '',
           description: data.description || '',
@@ -203,50 +97,63 @@ const ContentTab: React.FC = () => {
         });
         console.log('Lecture data loaded:', data);
       } else {
-        setSubmitStatus({
-          type: 'error',
-          message: 'Lecture not found.'
-        });
+        setStatusMessage('error', 'Lecture not found.', false);
       }
     } catch (error) {
       console.error('Error fetching lecture data:', error);
-      setSubmitStatus({
-        type: 'error',
-        message: 'Failed to load lecture data.'
-      });
+      setStatusMessage('error', 'Failed to load lecture data.', false);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (field: keyof LectureData, value: string) => {
-    setLectureData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const saveLecture = async (status: 'draft' | 'published') => {
+    if (!lectureId) {
+      throw new Error('No lecture ID available');
+    }
+    
+    if (status === 'published' && (!lectureData.content || !lectureData.content.trim())) {
+      setStatusMessage('error', 'Please add content before publishing.', false);
+      throw new Error('Content is required for publishing');
+    }
+    
+    try {
+      await updateDocument('lectures', lectureId, {
+        content: lectureData.content || '',
+        images: lectureData.images || [],
+        status
+      });
+      
+      setLectureData(prev => ({ ...prev, status }));
+      
+      const message = status === 'published' 
+        ? 'Lecture published successfully!' 
+        : 'Draft saved successfully!';
+      setStatusMessage('success', message);
+      
+    } catch (error) {
+      console.error(`Error ${status === 'published' ? 'publishing' : 'saving'} lecture:`, error);
+      const message = status === 'published'
+        ? 'Failed to publish lecture. Please try again.'
+        : 'Failed to save draft. Please try again.';
+      setStatusMessage('error', message, false);
+      throw error;
+    }
   };
 
   const generateImageId = () => `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
-      if (!file.type.startsWith('image/')) {
-        setSubmitStatus({
-          type: 'error',
-          message: `${file.name} is not a valid image file.`
-        });
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        setSubmitStatus({
-          type: 'error',
-          message: `${file.name} is too large. Maximum size is 5MB.`
-        });
-        return;
+    const fileArray = Array.from(files);
+    
+    for (const file of fileArray) {
+      const validationError = validateFile(file);
+      if (validationError) {
+        setStatusMessage('error', validationError, false);
+        continue;
       }
 
       const imageId = generateImageId();
@@ -258,84 +165,28 @@ const ContentTab: React.FC = () => {
         uploading: true
       }]);
 
-      uploadImageToFirebase(file, imageId);
-    });
+      try {
+        const downloadURL = await uploadToFirebase(file, imageId);
+        
+        setUploadedImages(prev => 
+          prev.map(img => 
+            img.id === imageId 
+              ? { ...img, url: downloadURL, uploading: false }
+              : img
+          )
+        );
+      } catch (error) {
+        setUploadedImages(prev => 
+          prev.map(img => 
+            img.id === imageId 
+              ? { ...img, uploading: false, error: 'Upload failed' }
+              : img
+          )
+        );
+      }
+    }
 
     event.target.value = '';
-  };
-
-  const uploadImageToFirebase = async (file: File, imageId: string) => {
-    try {
-      const storageRef = ref(storage, `lectures/content-images/${imageId}_${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(prev => ({
-            ...prev,
-            [imageId]: progress
-          }));
-        },
-        (error) => {
-          console.error('Upload error:', error);
-          setUploadedImages(prev => 
-            prev.map(img => 
-              img.id === imageId 
-                ? { ...img, uploading: false, error: 'Upload failed' }
-                : img
-            )
-          );
-          setUploadProgress(prev => {
-            const { [imageId]: _, ...rest } = prev;
-            return rest;
-          });
-        },
-        async () => {
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            
-            setUploadedImages(prev => 
-              prev.map(img => 
-                img.id === imageId 
-                  ? { ...img, url: downloadURL, uploading: false }
-                  : img
-              )
-            );
-
-            setUploadProgress(prev => {
-              const { [imageId]: _, ...rest } = prev;
-              return rest;
-            });
-
-            setLectureData(prev => ({
-              ...prev,
-              images: [...prev.images, downloadURL]
-            }));
-
-          } catch (error) {
-            console.error('Error getting download URL:', error);
-            setUploadedImages(prev => 
-              prev.map(img => 
-                img.id === imageId 
-                  ? { ...img, uploading: false, error: 'Failed to get download URL' }
-                  : img
-              )
-            );
-          }
-        }
-      );
-
-    } catch (error) {
-      console.error('Error starting upload:', error);
-      setUploadedImages(prev => 
-        prev.map(img => 
-          img.id === imageId 
-            ? { ...img, uploading: false, error: 'Failed to start upload' }
-            : img
-        )
-      );
-    }
   };
 
   const removeImage = (imageId: string) => {
@@ -349,22 +200,15 @@ const ContentTab: React.FC = () => {
     }
 
     setUploadedImages(prev => prev.filter(img => img.id !== imageId));
-    
-    setUploadProgress(prev => {
-      const { [imageId]: _, ...rest } = prev;
-      return rest;
-    });
   };
 
   const handleNextToActivity = async () => {
     // Auto-save content as draft before navigating
     if (lectureId && lectureData.content && lectureData.content.trim()) {
       try {
-        const docRef = doc(firestore, 'lectures', lectureId);
-        await updateDoc(docRef, {
+        await updateDocument('lectures', lectureId, {
           content: lectureData.content,
-          images: lectureData.images || [],
-          updatedAt: serverTimestamp()
+          images: lectureData.images || []
         });
         console.log('Content auto-saved before navigation');
       } catch (error) {
@@ -372,7 +216,6 @@ const ContentTab: React.FC = () => {
       }
     }
     
-    // Navigate to activity tab
     setActiveTab('activity');
   };
 
@@ -380,10 +223,7 @@ const ContentTab: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mr-3" />
-            <span className="text-lg text-gray-600">Loading lecture data...</span>
-          </div>
+          <LoadingSpinner message="Loading lecture data..." />
         </div>
       </div>
     );
@@ -397,7 +237,7 @@ const ContentTab: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Lecture Content</h2>
-              <p className="text-gray-600">Edit and manage your lecture content, images, and materials.</p>
+              <p className="text-gray-600">edit and manage your lecture content, images, and materials.</p>
             </div>
             <div className="flex items-center space-x-2">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -417,45 +257,22 @@ const ContentTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Status Messages */}
-        {submitStatus.type && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center space-x-3 ${
-            submitStatus.type === 'success' 
-              ? 'bg-green-50 border border-green-200' 
-              : 'bg-red-50 border border-red-200'
-          }`}>
-            {submitStatus.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-            )}
-            <p className={`text-sm ${
-              submitStatus.type === 'success' ? 'text-green-800' : 'text-red-800'
-            }`}>
-              {submitStatus.message}
-            </p>
-          </div>
-        )}
+        <StatusMessage type={status.type} message={status.message} />
 
         <div className="space-y-6">
-          {/* Content Input */}
-          <div>
-            <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-              Lecture Content *
-            </label>
-            <textarea
-              id="content"
-              value={lectureData.content}
-              onChange={(e) => handleInputChange('content', e.target.value)}
-              rows={15}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
-              placeholder="tools to be added for creating lecture
-              - font heading tool
-              - add image tool
-              - visual guide lines for clear lecture separations
-              - ..."
-            />
-          </div>
+          <FormInput
+            label="Lecture Content"
+            value={lectureData.content}
+            onChange={(value) => setLectureData(prev => ({ ...prev, content: value }))}
+            type="textarea"
+            rows={15}
+            placeholder={`Tools to be added for creating lecture
+- font heading tool
+- add image tool
+- visual guide lines for clear lecture separations
+- ...`}
+            required
+          />
 
           {/* Image Upload Section */}
           <div>
@@ -463,86 +280,24 @@ const ContentTab: React.FC = () => {
               Content Images
             </label>
             
-            {/* Upload Button */}
-            <div className="mb-4">
-              <label className="inline-flex items-center px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                <Upload className="w-4 h-4 mr-2 text-gray-600" />
-                <span className="text-sm text-gray-700">Upload Images</span>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-              </label>
-              <p className="text-xs text-gray-500 mt-1">
-                Supported formats: JPG, PNG, GIF. Maximum size: 5MB per image.
-              </p>
-            </div>
+            <FileUploadButton
+              onFileSelect={handleFileSelect}
+              multiple
+              label="Upload Images"
+              description="supported formats: JPG, PNG, GIF. maximum size: 5MB per image."
+            />
 
             {/* Uploaded Images Preview */}
             {uploadedImages.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {uploadedImages.map((image) => (
-                  <div key={image.id} className="relative bg-gray-50 rounded-lg border border-gray-200 p-3">
-                    {/* Image Preview */}
-                    <div className="aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
-                      {image.url ? (
-                        <img
-                          src={image.url}
-                          alt="Uploaded"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <ImageIcon className="w-8 h-8 text-gray-400" />
-                      )}
-                    </div>
-
-                    {/* File Info */}
-                    <div className="text-xs text-gray-600 mb-2 truncate">
-                      {image.file.name}
-                    </div>
-
-                    {/* Upload Progress */}
-                    {image.uploading && (
-                      <div className="mb-2">
-                        <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                          <span>Uploading...</span>
-                          <span>{Math.round(uploadProgress[image.id] || 0)}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                          <div 
-                            className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-                            style={{ width: `${uploadProgress[image.id] || 0}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Error Message */}
-                    {image.error && (
-                      <div className="text-xs text-red-600 mb-2">
-                        {image.error}
-                      </div>
-                    )}
-
-                    {/* Remove Button */}
-                    <button
-                      type="button"
-                      onClick={() => removeImage(image.id)}
-                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-
-                    {/* Upload Status Indicator */}
-                    {!image.uploading && !image.error && image.url && (
-                      <div className="absolute top-1 left-1 w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center">
-                        <CheckCircle className="w-3 h-3" />
-                      </div>
-                    )}
-                  </div>
+                  <ImageUploadPreview
+                    key={image.id}
+                    image={image}
+                    progress={getProgress(image.id || 'default')}
+                    onRemove={() => removeImage(image.id!)}
+                    aspectRatio="square"
+                  />
                 ))}
               </div>
             )}
