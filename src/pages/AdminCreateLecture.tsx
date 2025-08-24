@@ -1,6 +1,6 @@
 // src/pages/AdminCreateLecture.tsx
-import React, { useState, createContext, useContext, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, createContext, useContext, useCallback, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Footer } from '../components/layout/Footer';
 import {
     BookOpen,
@@ -11,8 +11,16 @@ import {
     Save,
     Eye,
     Info,
-    Globe
+    Globe,
+    Loader2,
+    AlertCircle
 } from 'lucide-react';
+import { 
+  getFirestore, 
+  doc, 
+  getDoc,
+  updateDoc 
+} from 'firebase/firestore';
 
 import InfoTab from '../components/hazard/InfoTab';
 import ContentTab from '../components/hazard/ContentTab';
@@ -58,6 +66,18 @@ const tabs: TabItem[] = [
     }
 ];
 
+// Lecture data interface
+export interface LectureData {
+    title: string;
+    description: string;
+    image: string;
+    content: string;
+    images: string[];
+    status: 'draft' | 'published';
+    createdAt?: any;
+    updatedAt?: any;
+}
+
 // Context for sharing lecture data between tabs
 interface LectureContextType {
     // Core state
@@ -66,6 +86,12 @@ interface LectureContextType {
     activeTab: string;
     setActiveTab: (tab: string) => void;
     navigateToNextTab: () => void;
+    
+    // Edit mode
+    isEditMode: boolean;
+    isLoadingLecture: boolean;
+    lectureData: LectureData | null;
+    setLectureData: (data: Partial<LectureData>) => void;
     
     // Tab action registration
     saveDraft: () => Promise<void>;
@@ -87,10 +113,20 @@ export const useLectureContext = () => {
     return context;
 };
 
+// Loading Component for Edit Mode
+const LoadingOverlay: React.FC<{ message: string }> = ({ message }) => (
+    <div className="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+        <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+            <p className="text-gray-600 text-lg">{message}</p>
+        </div>
+    </div>
+);
+
 // Header Component
 const CreateLectureHeader: React.FC = () => {
     const navigate = useNavigate();
-    const { activeTab, lectureId, saveDraft, publish } = useLectureContext();
+    const { activeTab, lectureId, isEditMode, saveDraft, publish } = useLectureContext();
     const [isLoading, setIsLoading] = useState(false);
     
     const handlePreview = () => {
@@ -137,7 +173,7 @@ const CreateLectureHeader: React.FC = () => {
                         </button>
                         <div className="w-px h-6 bg-gray-300"></div>
                         <h1 className="text-xl font-semibold text-gray-900">
-                            {lectureId ? 'Edit Lecture' : 'Create New Lecture'}
+                            {isEditMode ? 'Edit Lecture' : 'Create New Lecture'}
                         </h1>
                         {lectureId && (
                             <span className="text-sm text-gray-500">ID: {lectureId}</span>
@@ -312,14 +348,71 @@ const ProgressIndicator: React.FC = () => {
 };
 
 export default function AdminCreateLecture() {
+    const navigate = useNavigate();
+    const { lectureId: urlLectureId } = useParams<{ lectureId?: string }>();
+    
     const [activeTab, setActiveTab] = useState<string>('info');
-    const [lectureId, setLectureId] = useState<string | null>(null);
+    const [lectureId, setLectureId] = useState<string | null>(urlLectureId || null);
+    const [isLoadingLecture, setIsLoadingLecture] = useState(false);
+    const [lectureData, setLectureDataState] = useState<LectureData | null>(null);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    
+    const isEditMode = !!urlLectureId;
+    const firestore = getFirestore();
     
     // Tab action registry
     const [tabActions, setTabActions] = useState<{
         saveDraft?: () => Promise<void>;
         publish?: () => Promise<void>;
     }>({});
+
+    // Load lecture data in edit mode
+    useEffect(() => {
+        if (isEditMode && urlLectureId) {
+            loadLectureData(urlLectureId);
+        }
+    }, [isEditMode, urlLectureId]);
+
+    const loadLectureData = async (id: string) => {
+        setIsLoadingLecture(true);
+        setLoadError(null);
+        
+        try {
+            const lectureRef = doc(firestore, 'lectures', id);
+            const lectureSnap = await getDoc(lectureRef);
+            
+            if (!lectureSnap.exists()) {
+                throw new Error('Lecture not found');
+            }
+            
+            const data = lectureSnap.data();
+            const loadedData: LectureData = {
+                title: data.title || '',
+                description: data.description || '',
+                image: data.image || '',
+                content: data.content || '',
+                images: data.images || [],
+                status: data.status || (data.isPublished ? 'published' : 'draft'),
+                createdAt: data.createdAt,
+                updatedAt: data.updatedAt
+            };
+            
+            setLectureDataState(loadedData);
+            setLectureId(id);
+            
+            console.log('Loaded lecture data for editing:', loadedData);
+            
+        } catch (error) {
+            console.error('Error loading lecture:', error);
+            setLoadError('Failed to load lecture data. The lecture may not exist or you may not have permission to access it.');
+        } finally {
+            setIsLoadingLecture(false);
+        }
+    };
+
+    const setLectureData = useCallback((updates: Partial<LectureData>) => {
+        setLectureDataState(prev => prev ? { ...prev, ...updates } : null);
+    }, []);
 
     const navigateToNextTab = useCallback(() => {
         const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
@@ -330,12 +423,43 @@ export default function AdminCreateLecture() {
 
     // Default implementations for when no tab actions are registered
     const defaultSaveDraft = useCallback(async () => {
-        console.warn('No saveDraft action registered for current tab');
-    }, []);
+        if (!lectureId) {
+            console.warn('No lecture ID available for saving draft');
+            return;
+        }
+        
+        try {
+            await updateDoc(doc(firestore, 'lectures', lectureId), {
+                status: 'draft',
+                updatedAt: new Date()
+            });
+            
+            console.log('Draft saved successfully');
+        } catch (error) {
+            console.error('Error saving draft:', error);
+            throw error;
+        }
+    }, [lectureId, firestore]);
 
     const defaultPublish = useCallback(async () => {
-        console.warn('No publish action registered for current tab');
-    }, []);
+        if (!lectureId) {
+            console.warn('No lecture ID available for publishing');
+            return;
+        }
+        
+        try {
+            await updateDoc(doc(firestore, 'lectures', lectureId), {
+                status: 'published',
+                isPublished: true, // Legacy support
+                updatedAt: new Date()
+            });
+            
+            console.log('Lecture published successfully');
+        } catch (error) {
+            console.error('Error publishing lecture:', error);
+            throw error;
+        }
+    }, [lectureId, firestore]);
 
     // Action registration methods
     const registerTabActions = useCallback((actions: {
@@ -357,12 +481,50 @@ export default function AdminCreateLecture() {
         setActiveTab,
         navigateToNextTab,
         
+        // Edit mode
+        isEditMode,
+        isLoadingLecture,
+        lectureData,
+        setLectureData,
+        
         // Tab actions (use registered actions or defaults)
         saveDraft: tabActions.saveDraft || defaultSaveDraft,
         publish: tabActions.publish || defaultPublish,
         registerTabActions,
         unregisterTabActions
     };
+
+    // Show loading overlay while loading lecture data
+    if (isLoadingLecture) {
+        return <LoadingOverlay message="Loading lecture data..." />;
+    }
+
+    // Show error message if loading failed
+    if (loadError) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+                <div className="max-w-md w-full bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
+                    <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Lecture</h2>
+                    <p className="text-gray-600 mb-6">{loadError}</p>
+                    <div className="flex space-x-3">
+                        <button
+                            onClick={() => navigate('/admin')}
+                            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                        >
+                            Back to Dashboard
+                        </button>
+                        <button
+                            onClick={() => urlLectureId && loadLectureData(urlLectureId)}
+                            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                        >
+                            Try Again
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <LectureContext.Provider value={lectureContextValue}>
