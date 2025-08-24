@@ -75,13 +75,13 @@ const DeleteConfirmationModal: React.FC<{
               <Trash2 className="w-6 h-6 text-red-600" />
             </div>
             <div>
-              <p className="text-gray-900 font-medium">Are you sure you want to delete this lecture?</p>
+              <p className="text-gray-900 font-medium">are you sure you want to delete this lecture?</p>
               <p className="text-sm text-gray-600">"{lectureName}"</p>
             </div>
           </div>
           
           <p className="text-gray-700 mb-6">
-            This action cannot be undone. The lecture and all associated images will be permanently deleted.
+            this action cannot be undone.
           </p>
           
           <div className="flex space-x-3">

@@ -13,7 +13,8 @@ import {
     Info,
     Globe,
     Loader2,
-    AlertCircle
+    AlertCircle,
+    RefreshCw
 } from 'lucide-react';
 import { 
   getFirestore, 
@@ -92,6 +93,7 @@ interface LectureContextType {
     isLoadingLecture: boolean;
     lectureData: LectureData | null;
     setLectureData: (data: Partial<LectureData>) => void;
+    refreshLectureData: () => Promise<void>;
     
     // Tab action registration
     saveDraft: () => Promise<void>;
@@ -126,7 +128,16 @@ const LoadingOverlay: React.FC<{ message: string }> = ({ message }) => (
 // Header Component
 const CreateLectureHeader: React.FC = () => {
     const navigate = useNavigate();
-    const { activeTab, lectureId, isEditMode, saveDraft, publish } = useLectureContext();
+    const { 
+        activeTab, 
+        lectureId, 
+        isEditMode, 
+        lectureData,
+        saveDraft, 
+        publish,
+        refreshLectureData,
+        isLoadingLecture 
+    } = useLectureContext();
     const [isLoading, setIsLoading] = useState(false);
     
     const handlePreview = () => {
@@ -158,6 +169,16 @@ const CreateLectureHeader: React.FC = () => {
             setIsLoading(false);
         }
     };
+
+    const handleRefreshData = async () => {
+        if (isEditMode && lectureId) {
+            try {
+                await refreshLectureData();
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+            }
+        }
+    };
     
     return (
         <div className="bg-white shadow-sm border-b border-gray-200">
@@ -172,42 +193,72 @@ const CreateLectureHeader: React.FC = () => {
                             <span>Back to Dashboard</span>
                         </button>
                         <div className="w-px h-6 bg-gray-300"></div>
-                        <h1 className="text-xl font-semibold text-gray-900">
-                            {isEditMode ? 'Edit Lecture' : 'Create New Lecture'}
-                        </h1>
+                        <div className="flex items-center space-x-3">
+                            <h1 className="text-xl font-semibold text-gray-900">
+                                {isEditMode ? 'Edit Lecture' : 'Create New Lecture'}
+                            </h1>
+                            {isEditMode && lectureData && (
+                                <div className="flex items-center space-x-2">
+                                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                        {lectureData.status}
+                                    </span>
+                                    <button
+                                        onClick={handleRefreshData}
+                                        disabled={isLoadingLecture}
+                                        className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                                        title="Refresh lecture data"
+                                    >
+                                        <RefreshCw className={`w-4 h-4 ${isLoadingLecture ? 'animate-spin' : ''}`} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         {lectureId && (
-                            <span className="text-sm text-gray-500">ID: {lectureId}</span>
+                            <span className="text-sm text-gray-500">ID: {lectureId.slice(-8)}</span>
                         )}
                     </div>
 
                     {/* Right Side - Action Buttons */}
                     <div className="flex items-center space-x-3">
-                        {activeTab === 'content' && lectureId && (
+                        {lectureId && (
                             <>
                                 <button 
                                     onClick={handlePreview}
-                                    disabled={isLoading}
+                                    disabled={isLoading || isLoadingLecture}
                                     className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Eye className="w-4 h-4" />
                                     <span>Preview</span>
                                 </button>
-                                <button 
-                                    onClick={handleSaveDraft}
-                                    disabled={isLoading}
-                                    className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <Save className="w-4 h-4" />
-                                    <span>{isLoading ? 'Saving...' : 'Save Draft'}</span>
-                                </button>
-                                <button 
-                                    onClick={handlePublish}
-                                    disabled={isLoading}
-                                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <Globe className="w-4 h-4" />
-                                    <span>{isLoading ? 'Publishing...' : 'Publish'}</span>
-                                </button>
+                                
+                                {(activeTab === 'content' || isEditMode) && (
+                                    <>
+                                        <button 
+                                            onClick={handleSaveDraft}
+                                            disabled={isLoading || isLoadingLecture}
+                                            className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isLoading ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Save className="w-4 h-4" />
+                                            )}
+                                            <span>{isLoading ? 'Saving...' : 'Save Draft'}</span>
+                                        </button>
+                                        <button 
+                                            onClick={handlePublish}
+                                            disabled={isLoading || isLoadingLecture}
+                                            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isLoading ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Globe className="w-4 h-4" />
+                                            )}
+                                            <span>{isLoading ? 'Publishing...' : 'Publish'}</span>
+                                        </button>
+                                    </>
+                                )}
                             </>
                         )}
                     </div>
@@ -219,14 +270,15 @@ const CreateLectureHeader: React.FC = () => {
 
 // Tab Navigation Component
 const TabNavigation: React.FC = () => {
-    const { activeTab, setActiveTab, lectureId } = useLectureContext();
+    const { activeTab, setActiveTab, lectureId, isEditMode } = useLectureContext();
     
     return (
         <div className="bg-white border-b border-gray-200">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex space-x-8 overflow-x-auto">
                     {tabs.map((tab) => {
-                        // Disable tabs that require lectureId if it doesn't exist
+                        // In edit mode, all tabs are enabled if we have lectureId
+                        // In create mode, only enable tabs after lectureId is created
                         const isDisabled = !lectureId && tab.id !== 'info';
                         
                         return (
@@ -244,6 +296,9 @@ const TabNavigation: React.FC = () => {
                             >
                                 {tab.icon}
                                 <span>{tab.label}</span>
+                                {isEditMode && lectureId && (
+                                    <div className="w-2 h-2 bg-green-400 rounded-full ml-1" title="Data available" />
+                                )}
                             </button>
                         );
                     })}
@@ -255,7 +310,21 @@ const TabNavigation: React.FC = () => {
 
 // Tab Content Component
 const TabContent: React.FC = () => {
-    const { activeTab, lectureId } = useLectureContext();
+    const { activeTab, lectureId, isLoadingLecture } = useLectureContext();
+    
+    // Show loading state for any tab while lecture data is being loaded
+    if (isLoadingLecture) {
+        return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <div className="flex items-center justify-center">
+                    <div className="text-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+                        <p className="text-gray-600">Loading lecture data...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
     
     if (activeTab === 'info') {
         return <InfoTab />;
@@ -313,7 +382,7 @@ const TabContent: React.FC = () => {
 
 // Progress Indicator Component
 const ProgressIndicator: React.FC = () => {
-    const { activeTab } = useLectureContext();
+    const { activeTab, isEditMode, lectureData } = useLectureContext();
     
     const getCurrentStepNumber = () => {
         const stepMap = { info: 1, content: 2, simulation: 3, activity: 4, quiz: 5 };
@@ -327,9 +396,16 @@ const ProgressIndicator: React.FC = () => {
         <div className="bg-blue-50 border-b border-blue-100">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
                 <div className="flex items-center justify-between text-sm">
-                    <span className="text-blue-700 font-medium">
-                        Step {currentStep} of {totalSteps}
-                    </span>
+                    <div className="flex items-center space-x-4">
+                        <span className="text-blue-700 font-medium">
+                            Step {currentStep} of {totalSteps}
+                        </span>
+                        {isEditMode && lectureData && (
+                            <span className="text-blue-600 text-xs">
+                                Editing: {lectureData.title || 'Untitled Lecture'}
+                            </span>
+                        )}
+                    </div>
                     <div className="flex items-center space-x-2">
                         <div className="w-32 bg-blue-200 rounded-full h-2">
                             <div
@@ -410,8 +486,18 @@ export default function AdminCreateLecture() {
         }
     };
 
+    const refreshLectureData = useCallback(async () => {
+        if (!lectureId) return;
+        await loadLectureData(lectureId);
+    }, [lectureId, firestore]);
+
     const setLectureData = useCallback((updates: Partial<LectureData>) => {
-        setLectureDataState(prev => prev ? { ...prev, ...updates } : null);
+        setLectureDataState(prev => {
+            if (!prev) return null;
+            const updated = { ...prev, ...updates };
+            console.log('Updated lecture data in context:', updated);
+            return updated;
+        });
     }, []);
 
     const navigateToNextTab = useCallback(() => {
@@ -421,7 +507,7 @@ export default function AdminCreateLecture() {
         }
     }, [activeTab]);
 
-    // Default implementations for when no tab actions are registered
+    // Enhanced save and publish methods
     const defaultSaveDraft = useCallback(async () => {
         if (!lectureId) {
             console.warn('No lecture ID available for saving draft');
@@ -429,17 +515,31 @@ export default function AdminCreateLecture() {
         }
         
         try {
-            await updateDoc(doc(firestore, 'lectures', lectureId), {
+            const updateData: any = {
                 status: 'draft',
                 updatedAt: new Date()
-            });
+            };
+
+            // Include current lecture data if available
+            if (lectureData) {
+                updateData.title = lectureData.title;
+                updateData.description = lectureData.description;
+                updateData.image = lectureData.image;
+                updateData.content = lectureData.content;
+                updateData.images = lectureData.images;
+            }
+
+            await updateDoc(doc(firestore, 'lectures', lectureId), updateData);
             
-            console.log('Draft saved successfully');
+            // Update local state
+            setLectureData({ status: 'draft' });
+            
+            console.log('Draft saved successfully with current data');
         } catch (error) {
             console.error('Error saving draft:', error);
             throw error;
         }
-    }, [lectureId, firestore]);
+    }, [lectureId, firestore, lectureData, setLectureData]);
 
     const defaultPublish = useCallback(async () => {
         if (!lectureId) {
@@ -448,18 +548,32 @@ export default function AdminCreateLecture() {
         }
         
         try {
-            await updateDoc(doc(firestore, 'lectures', lectureId), {
+            const updateData: any = {
                 status: 'published',
                 isPublished: true, // Legacy support
                 updatedAt: new Date()
-            });
+            };
+
+            // Include current lecture data if available
+            if (lectureData) {
+                updateData.title = lectureData.title;
+                updateData.description = lectureData.description;
+                updateData.image = lectureData.image;
+                updateData.content = lectureData.content;
+                updateData.images = lectureData.images;
+            }
+
+            await updateDoc(doc(firestore, 'lectures', lectureId), updateData);
             
-            console.log('Lecture published successfully');
+            // Update local state
+            setLectureData({ status: 'published' });
+            
+            console.log('Lecture published successfully with current data');
         } catch (error) {
             console.error('Error publishing lecture:', error);
             throw error;
         }
-    }, [lectureId, firestore]);
+    }, [lectureId, firestore, lectureData, setLectureData]);
 
     // Action registration methods
     const registerTabActions = useCallback((actions: {
@@ -486,6 +600,7 @@ export default function AdminCreateLecture() {
         isLoadingLecture,
         lectureData,
         setLectureData,
+        refreshLectureData,
         
         // Tab actions (use registered actions or defaults)
         saveDraft: tabActions.saveDraft || defaultSaveDraft,
@@ -493,11 +608,6 @@ export default function AdminCreateLecture() {
         registerTabActions,
         unregisterTabActions
     };
-
-    // Show loading overlay while loading lecture data
-    if (isLoadingLecture) {
-        return <LoadingOverlay message="Loading lecture data..." />;
-    }
 
     // Show error message if loading failed
     if (loadError) {

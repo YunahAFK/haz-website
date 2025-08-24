@@ -1,5 +1,5 @@
 // src/components/hazard/InfoTab.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Upload, 
   X, 
@@ -20,6 +20,8 @@ import {
   getFirestore, 
   collection, 
   addDoc, 
+  updateDoc,
+  doc,
   serverTimestamp 
 } from 'firebase/firestore';
 
@@ -32,14 +34,22 @@ interface LectureInfo {
 }
 
 interface UploadedImage {
-  file: File;
+  file: File | null;
   url: string | null;
   uploading: boolean;
   error?: string;
+  isExisting?: boolean; // Flag to indicate if this is an existing image from edit mode
 }
 
 const InfoTab: React.FC = () => {
-  const { setLectureId, navigateToNextTab } = useLectureContext();
+  const { 
+    setLectureId, 
+    navigateToNextTab, 
+    isEditMode, 
+    lectureData, 
+    lectureId,
+    setLectureData 
+  } = useLectureContext();
   
   const [lectureInfo, setLectureInfo] = useState<LectureInfo>({
     title: '',
@@ -50,6 +60,7 @@ const InfoTab: React.FC = () => {
   const [uploadedImage, setUploadedImage] = useState<UploadedImage | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<{
     type: 'success' | 'error' | null;
     message: string;
@@ -58,11 +69,59 @@ const InfoTab: React.FC = () => {
   const storage = getStorage();
   const firestore = getFirestore();
 
+  // Pre-load data in edit mode
+  useEffect(() => {
+    if (isEditMode && lectureData && !isDataLoaded) {
+      console.log('Pre-loading lecture data in InfoTab:', lectureData);
+      
+      const newLectureInfo = {
+        title: lectureData.title || '',
+        description: lectureData.description || '',
+        image: lectureData.image || ''
+      };
+      
+      setLectureInfo(newLectureInfo);
+      
+      // If there's an existing image, set it up
+      if (lectureData.image) {
+        setUploadedImage({
+          file: null,
+          url: lectureData.image,
+          uploading: false,
+          isExisting: true
+        });
+      }
+      
+      setIsDataLoaded(true);
+      
+      // Clear any previous status messages when loading edit data
+      setSubmitStatus({ type: null, message: '' });
+    }
+  }, [isEditMode, lectureData, isDataLoaded]);
+
+  // Reset data loaded flag when switching between lectures or modes
+  useEffect(() => {
+    if (!isEditMode || !lectureData) {
+      setIsDataLoaded(false);
+    }
+  }, [isEditMode, lectureData, lectureId]);
+
   const handleInputChange = (field: keyof LectureInfo, value: string) => {
-    setLectureInfo(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setLectureInfo(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Update context data if in edit mode
+      if (isEditMode && lectureData) {
+        setLectureData({ [field]: value });
+      }
+      
+      return updated;
+    });
+    
+    // Clear any existing error messages when user starts editing
+    if (submitStatus.type === 'error') {
+      setSubmitStatus({ type: null, message: '' });
+    }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,7 +147,8 @@ const InfoTab: React.FC = () => {
     setUploadedImage({
       file,
       url: null,
-      uploading: true
+      uploading: true,
+      isExisting: false
     });
 
     uploadImageToFirebase(file);
@@ -121,15 +181,22 @@ const InfoTab: React.FC = () => {
             setUploadedImage(prev => prev ? {
               ...prev,
               url: downloadURL,
-              uploading: false
+              uploading: false,
+              isExisting: false
             } : null);
 
-            setLectureInfo(prev => ({
-              ...prev,
-              image: downloadURL
-            }));
+            const updatedInfo = { ...lectureInfo, image: downloadURL };
+            setLectureInfo(updatedInfo);
+
+            // Update context data if in edit mode
+            if (isEditMode && lectureData) {
+              setLectureData({ image: downloadURL });
+            }
 
             setUploadProgress(0);
+            
+            // Clear any error messages after successful upload
+            setSubmitStatus({ type: null, message: '' });
 
           } catch (error) {
             console.error('Error getting download URL:', error);
@@ -154,10 +221,14 @@ const InfoTab: React.FC = () => {
 
   const removeImage = () => {
     setUploadedImage(null);
-    setLectureInfo(prev => ({
-      ...prev,
-      image: ''
-    }));
+    const updatedInfo = { ...lectureInfo, image: '' };
+    setLectureInfo(updatedInfo);
+    
+    // Update context data if in edit mode
+    if (isEditMode && lectureData) {
+      setLectureData({ image: '' });
+    }
+    
     setUploadProgress(0);
   };
 
@@ -190,24 +261,50 @@ const InfoTab: React.FC = () => {
     setSubmitStatus({ type: null, message: '' });
 
     try {
-      const docRef = await addDoc(collection(firestore, 'lectures'), {
-        title: lectureInfo.title,
-        description: lectureInfo.description,
-        image: lectureInfo.image,
-        status: 'draft', // Mark as draft initially
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      if (isEditMode && lectureId) {
+        // Update existing lecture
+        await updateDoc(doc(firestore, 'lectures', lectureId), {
+          title: lectureInfo.title,
+          description: lectureInfo.description,
+          image: lectureInfo.image,
+          updatedAt: serverTimestamp()
+        });
 
-      console.log('Lecture created with ID:', docRef.id);
-      
-      // Store the lecture ID in context
-      setLectureId(docRef.id);
+        console.log('Lecture info updated for ID:', lectureId);
+        
+        // Update context data
+        setLectureData({
+          title: lectureInfo.title,
+          description: lectureInfo.description,
+          image: lectureInfo.image
+        });
 
-      setSubmitStatus({
-        type: 'success',
-        message: 'Lecture info saved successfully!'
-      });
+        setSubmitStatus({
+          type: 'success',
+          message: 'Lecture info updated successfully!'
+        });
+        
+      } else {
+        // Create new lecture
+        const docRef = await addDoc(collection(firestore, 'lectures'), {
+          title: lectureInfo.title,
+          description: lectureInfo.description,
+          image: lectureInfo.image,
+          status: 'draft',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+
+        console.log('Lecture created with ID:', docRef.id);
+        
+        // Store the lecture ID in context
+        setLectureId(docRef.id);
+
+        setSubmitStatus({
+          type: 'success',
+          message: 'Lecture info saved successfully!'
+        });
+      }
 
       // Auto-navigate to next tab after a short delay
       setTimeout(() => {
@@ -215,23 +312,48 @@ const InfoTab: React.FC = () => {
       }, 1500);
 
     } catch (error) {
-      console.error('Error creating lecture:', error);
+      console.error('Error saving lecture info:', error);
       setSubmitStatus({
         type: 'error',
-        message: 'Failed to save lecture info. Please try again.'
+        message: isEditMode 
+          ? 'Failed to update lecture info. Please try again.'
+          : 'Failed to save lecture info. Please try again.'
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Show loading state while data is being loaded in edit mode
+  if (isEditMode && lectureData && !isDataLoaded) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600">Loading lecture information...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         {/* Header */}
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Lecture Information</h2>
-          <p className="text-gray-600">enter the basic information about your lecture.</p>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+            {isEditMode ? 'Edit Lecture Information' : 'Lecture Information'}
+          </h2>
+          <p className="text-gray-600">
+            {isEditMode 
+              ? 'Update the basic information about your lecture.'
+              : 'Enter the basic information about your lecture.'
+            }
+          </p>
         </div>
 
         {/* Status Messages */}
@@ -266,7 +388,7 @@ const InfoTab: React.FC = () => {
               value={lectureInfo.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="enter lecture title..."
+              placeholder="Enter lecture title..."
               required
             />
           </div>
@@ -282,7 +404,7 @@ const InfoTab: React.FC = () => {
               onChange={(e) => handleInputChange('description', e.target.value)}
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-              placeholder="enter a brief description of the lecture..."
+              placeholder="Enter a brief description of the lecture..."
               required
             />
           </div>
@@ -306,7 +428,7 @@ const InfoTab: React.FC = () => {
                   />
                 </label>
                 <p className="text-xs text-gray-500 mt-1">
-                  supported formats: JPG, PNG, GIF. maximum size: 5MB.
+                  Supported formats: JPG, PNG, GIF. Maximum size: 5MB.
                 </p>
               </div>
             ) : (
@@ -327,7 +449,9 @@ const InfoTab: React.FC = () => {
 
                   {/* File Info */}
                   <div className="text-sm text-gray-600 mb-2 truncate">
-                    {uploadedImage.file.name}
+                    {uploadedImage.file ? uploadedImage.file.name : (
+                      uploadedImage.isExisting ? 'Existing cover image' : 'Uploaded image'
+                    )}
                   </div>
 
                   {/* Upload Progress */}
@@ -374,7 +498,9 @@ const InfoTab: React.FC = () => {
                 {!uploadedImage.uploading && (
                   <label className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-50 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition-colors mt-2">
                     <Upload className="w-3 h-3 mr-1 text-gray-600" />
-                    <span className="text-gray-700">Replace Image</span>
+                    <span className="text-gray-700">
+                      {uploadedImage.isExisting ? 'Replace Image' : 'Replace Image'}
+                    </span>
                     <input
                       type="file"
                       accept="image/*"
@@ -399,7 +525,11 @@ const InfoTab: React.FC = () => {
               ) : (
                 <ArrowRight className="w-4 h-4 mr-2" />
               )}
-              {isSubmitting ? 'Creating Lecture...' : 'Next: Content'}
+              {isSubmitting ? (
+                isEditMode ? 'Updating...' : 'Creating Lecture...'
+              ) : (
+                isEditMode ? 'Update & Continue' : 'Next: Content'
+              )}
             </button>
           </div>
         </form>
