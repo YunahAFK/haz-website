@@ -332,7 +332,7 @@ const InfoTab: React.FC = () => {
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600">Loading lecture information...</p>
+              <p className="text-gray-600">Loading Lecture Information...</p>
             </div>
           </div>
         </div>
@@ -350,8 +350,8 @@ const InfoTab: React.FC = () => {
           </h2>
           <p className="text-gray-600">
             {isEditMode 
-              ? 'Update the basic information about your lecture.'
-              : 'Enter the basic information about your lecture.'
+              ? 'enter the basic information about your lecture.'
+              : 'enter the basic information about your lecture.'
             }
           </p>
         </div>
@@ -428,7 +428,7 @@ const InfoTab: React.FC = () => {
                   />
                 </label>
                 <p className="text-xs text-gray-500 mt-1">
-                  Supported formats: JPG, PNG, GIF. Maximum size: 5MB.
+                  supported formats: JPG, PNG, GIF. maximum size: 5MB.
                 </p>
               </div>
             ) : (
