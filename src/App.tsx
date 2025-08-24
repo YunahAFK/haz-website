@@ -18,6 +18,7 @@ function App() {
         <Route path="/lecture/:lectureId" element={<LectureDetail />} />
         <Route path="/admin" element={<AdminHome />} />
         <Route path="/admin/create-lecture" element={<AdminCreateLecture />} />
+        <Route path="/admin/edit-lecture/:lectureId" element={<AdminCreateLecture />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
       </Routes>

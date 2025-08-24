@@ -16,11 +16,11 @@ import {
     AlertCircle,
     RefreshCw
 } from 'lucide-react';
-import { 
-  getFirestore, 
-  doc, 
-  getDoc,
-  updateDoc 
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    updateDoc
 } from 'firebase/firestore';
 
 import InfoTab from '../components/hazard/InfoTab';
@@ -87,14 +87,14 @@ interface LectureContextType {
     activeTab: string;
     setActiveTab: (tab: string) => void;
     navigateToNextTab: () => void;
-    
+
     // Edit mode
     isEditMode: boolean;
     isLoadingLecture: boolean;
     lectureData: LectureData | null;
     setLectureData: (data: Partial<LectureData>) => void;
     refreshLectureData: () => Promise<void>;
-    
+
     // Tab action registration
     saveDraft: () => Promise<void>;
     publish: () => Promise<void>;
@@ -128,18 +128,18 @@ const LoadingOverlay: React.FC<{ message: string }> = ({ message }) => (
 // Header Component
 const CreateLectureHeader: React.FC = () => {
     const navigate = useNavigate();
-    const { 
-        activeTab, 
-        lectureId, 
-        isEditMode, 
+    const {
+        activeTab,
+        lectureId,
+        isEditMode,
         lectureData,
-        saveDraft, 
+        saveDraft,
         publish,
         refreshLectureData,
-        isLoadingLecture 
+        isLoadingLecture
     } = useLectureContext();
     const [isLoading, setIsLoading] = useState(false);
-    
+
     const handlePreview = () => {
         if (lectureId) {
             window.open(`/lecture/${lectureId}`, '_blank');
@@ -179,7 +179,7 @@ const CreateLectureHeader: React.FC = () => {
             }
         }
     };
-    
+
     return (
         <div className="bg-white shadow-sm border-b border-gray-200">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -222,7 +222,7 @@ const CreateLectureHeader: React.FC = () => {
                     <div className="flex items-center space-x-3">
                         {lectureId && (
                             <>
-                                <button 
+                                <button
                                     onClick={handlePreview}
                                     disabled={isLoading || isLoadingLecture}
                                     className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -230,10 +230,10 @@ const CreateLectureHeader: React.FC = () => {
                                     <Eye className="w-4 h-4" />
                                     <span>Preview</span>
                                 </button>
-                                
+
                                 {(activeTab === 'content' || isEditMode) && (
                                     <>
-                                        <button 
+                                        <button
                                             onClick={handleSaveDraft}
                                             disabled={isLoading || isLoadingLecture}
                                             className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -245,7 +245,7 @@ const CreateLectureHeader: React.FC = () => {
                                             )}
                                             <span>{isLoading ? 'Saving...' : 'Save Draft'}</span>
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={handlePublish}
                                             disabled={isLoading || isLoadingLecture}
                                             className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -271,7 +271,7 @@ const CreateLectureHeader: React.FC = () => {
 // Tab Navigation Component
 const TabNavigation: React.FC = () => {
     const { activeTab, setActiveTab, lectureId, isEditMode } = useLectureContext();
-    
+
     return (
         <div className="bg-white border-b border-gray-200">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -280,19 +280,18 @@ const TabNavigation: React.FC = () => {
                         // In edit mode, all tabs are enabled if we have lectureId
                         // In create mode, only enable tabs after lectureId is created
                         const isDisabled = !lectureId && tab.id !== 'info';
-                        
+
                         return (
                             <button
                                 key={tab.id}
                                 onClick={() => !isDisabled && setActiveTab(tab.id)}
                                 disabled={isDisabled}
-                                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                                    activeTab === tab.id
+                                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === tab.id
                                         ? 'border-blue-500 text-blue-600'
                                         : isDisabled
-                                        ? 'border-transparent text-gray-300 cursor-not-allowed'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                }`}
+                                            ? 'border-transparent text-gray-300 cursor-not-allowed'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    }`}
                             >
                                 {tab.icon}
                                 <span>{tab.label}</span>
@@ -311,7 +310,7 @@ const TabNavigation: React.FC = () => {
 // Tab Content Component
 const TabContent: React.FC = () => {
     const { activeTab, lectureId, isLoadingLecture } = useLectureContext();
-    
+
     // Show loading state for any tab while lecture data is being loaded
     if (isLoadingLecture) {
         return (
@@ -325,11 +324,11 @@ const TabContent: React.FC = () => {
             </div>
         );
     }
-    
+
     if (activeTab === 'info') {
         return <InfoTab />;
     }
-    
+
     if (activeTab === 'content') {
         return <ContentTab />;
     }
@@ -383,7 +382,7 @@ const TabContent: React.FC = () => {
 // Progress Indicator Component
 const ProgressIndicator: React.FC = () => {
     const { activeTab, isEditMode, lectureData } = useLectureContext();
-    
+
     const getCurrentStepNumber = () => {
         const stepMap = { info: 1, content: 2, simulation: 3, activity: 4, quiz: 5 };
         return stepMap[activeTab as keyof typeof stepMap] || 1;
@@ -426,16 +425,16 @@ const ProgressIndicator: React.FC = () => {
 export default function AdminCreateLecture() {
     const navigate = useNavigate();
     const { lectureId: urlLectureId } = useParams<{ lectureId?: string }>();
-    
+
     const [activeTab, setActiveTab] = useState<string>('info');
     const [lectureId, setLectureId] = useState<string | null>(urlLectureId || null);
     const [isLoadingLecture, setIsLoadingLecture] = useState(false);
     const [lectureData, setLectureDataState] = useState<LectureData | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
-    
+
     const isEditMode = !!urlLectureId;
     const firestore = getFirestore();
-    
+
     // Tab action registry
     const [tabActions, setTabActions] = useState<{
         saveDraft?: () => Promise<void>;
@@ -452,15 +451,15 @@ export default function AdminCreateLecture() {
     const loadLectureData = async (id: string) => {
         setIsLoadingLecture(true);
         setLoadError(null);
-        
+
         try {
             const lectureRef = doc(firestore, 'lectures', id);
             const lectureSnap = await getDoc(lectureRef);
-            
+
             if (!lectureSnap.exists()) {
                 throw new Error('Lecture not found');
             }
-            
+
             const data = lectureSnap.data();
             const loadedData: LectureData = {
                 title: data.title || '',
@@ -472,15 +471,19 @@ export default function AdminCreateLecture() {
                 createdAt: data.createdAt,
                 updatedAt: data.updatedAt
             };
-            
+
             setLectureDataState(loadedData);
             setLectureId(id);
-            
+
+            // ✅ Reset active tab to info after load
+            setActiveTab('info');
+
             console.log('Loaded lecture data for editing:', loadedData);
-            
         } catch (error) {
             console.error('Error loading lecture:', error);
-            setLoadError('Failed to load lecture data. The lecture may not exist or you may not have permission to access it.');
+            setLoadError(
+                'Failed to load lecture data. The lecture may not exist or you may not have permission to access it.'
+            );
         } finally {
             setIsLoadingLecture(false);
         }
@@ -513,7 +516,7 @@ export default function AdminCreateLecture() {
             console.warn('No lecture ID available for saving draft');
             return;
         }
-        
+
         try {
             const updateData: any = {
                 status: 'draft',
@@ -530,10 +533,10 @@ export default function AdminCreateLecture() {
             }
 
             await updateDoc(doc(firestore, 'lectures', lectureId), updateData);
-            
+
             // Update local state
             setLectureData({ status: 'draft' });
-            
+
             console.log('Draft saved successfully with current data');
         } catch (error) {
             console.error('Error saving draft:', error);
@@ -546,7 +549,7 @@ export default function AdminCreateLecture() {
             console.warn('No lecture ID available for publishing');
             return;
         }
-        
+
         try {
             const updateData: any = {
                 status: 'published',
@@ -564,10 +567,10 @@ export default function AdminCreateLecture() {
             }
 
             await updateDoc(doc(firestore, 'lectures', lectureId), updateData);
-            
+
             // Update local state
             setLectureData({ status: 'published' });
-            
+
             console.log('Lecture published successfully with current data');
         } catch (error) {
             console.error('Error publishing lecture:', error);
@@ -594,14 +597,14 @@ export default function AdminCreateLecture() {
         activeTab,
         setActiveTab,
         navigateToNextTab,
-        
+
         // Edit mode
         isEditMode,
         isLoadingLecture,
         lectureData,
         setLectureData,
         refreshLectureData,
-        
+
         // Tab actions (use registered actions or defaults)
         saveDraft: tabActions.saveDraft || defaultSaveDraft,
         publish: tabActions.publish || defaultPublish,

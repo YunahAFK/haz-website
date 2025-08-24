@@ -317,7 +317,7 @@ export default function AdminHome() {
   };
 
   const handleEditLecture = (id: string) => {
-    navigate(`/admin/create-lecture/${id}`);
+    navigate(`/admin/edit-lecture/${id}`);
   };
 
   const handleDeleteLecture = (id: string) => {
