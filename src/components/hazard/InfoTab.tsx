@@ -1,9 +1,9 @@
-// src/components/hazard/InfoTab.tsx - REFACTORED
+// src/components/hazard/InfoTab.tsx
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Loader2, Upload } from 'lucide-react';
 import { useLectureContext } from '../../pages/AdminCreateLecture';
 import { useStatusMessage } from '../../hooks/useStatusMessage';
-import { UploadedImage } from '../../hooks/useImageUpload';
+import { UploadedImage } from '../../types/uploadedImage';
 import { useCloudinaryUpload } from '../../hooks/useCloudinaryUpload';
 import { useFirestore } from '../../hooks/useFirestore';
 import { StatusMessage } from '../common/StatusMessage';
@@ -11,6 +11,7 @@ import { ImageUploadPreview } from '../common/ImageUploadPreview';
 import { FileUploadButton } from '../common/FileUploadButton';
 import { FormInput } from '../common/FormInput';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { cloudinaryConfig } from '../../lib/cloudinary';
 
 interface LectureInfo {
   title: string;
@@ -40,22 +41,37 @@ const InfoTab: React.FC = () => {
   const { status, setStatusMessage, clearStatus } = useStatusMessage();
   const { createDocument, updateDocument } = useFirestore();
 
+  // Initialize Cloudinary upload hook
   const { validateFile, uploadToCloudinary, getProgress } = useCloudinaryUpload({
-    cloudName: "dphrqp6a3",
-    uploadPreset: "haz-image-upload",
-    onSuccess: (url) => {
+    ...cloudinaryConfig,
+    onSuccess: (url, publicId) => {
       const updatedInfo = { ...lectureInfo, image: url };
       setLectureInfo(updatedInfo);
       if (isEditMode && lectureData) {
         setLectureData({ image: url });
       }
       clearStatus();
+      
+      // Update uploaded image state
+      setUploadedImage(prev => prev ? {
+        ...prev,
+        url,
+        publicId,
+        uploading: false,
+        uploadProgress: 100
+      } : null);
     },
-    onError: (error) => setStatusMessage('error', error, false),
+    onError: (error) => {
+      setStatusMessage('error', error, false);
+      setUploadedImage(prev => prev ? {
+        ...prev,
+        uploading: false,
+        error
+      } : null);
+    },
   });
 
-
-  // Pre-load data in edit mode
+  // Pre-load data in edit mode (existing code remains the same)
   useEffect(() => {
     if (isEditMode && lectureData && !isDataLoaded) {
       const newLectureInfo = {
@@ -68,10 +84,12 @@ const InfoTab: React.FC = () => {
 
       if (lectureData.image) {
         setUploadedImage({
+          id: `existing-${Date.now()}`,
           file: null,
           url: lectureData.image,
           uploading: false,
-          isExisting: true
+          isExisting: true,
+          uploadProgress: 100
         });
       }
 
@@ -101,30 +119,35 @@ const InfoTab: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Validate file
     const validationError = validateFile(file);
     if (validationError) {
       setStatusMessage('error', validationError, false);
       return;
     }
 
+    // Create upload ID for progress tracking
+    const uploadId = `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Set uploading state
     setUploadedImage({
+      id: uploadId,
       file,
       url: null,
       uploading: true,
-      isExisting: false
+      isExisting: false,
+      uploadProgress: 0
     });
 
     try {
-      await uploadToCloudinary(file);
-      setUploadedImage(prev => prev ? { ...prev, uploading: false } : null);
+      // Upload will be handled by the onSuccess callback
+      await uploadToCloudinary(file, uploadId);
     } catch (error) {
-      setUploadedImage(prev => prev ? {
-        ...prev,
-        uploading: false,
-        error: 'Upload failed'
-      } : null);
+      // Error is handled by the onError callback
+      console.error('Upload error:', error);
     }
 
+    // Clear input
     event.target.value = '';
   };
 
@@ -203,7 +226,7 @@ const InfoTab: React.FC = () => {
             {isEditMode ? 'Edit Lecture Information' : 'Lecture Information'}
           </h2>
           <p className="text-gray-600">
-            enter the basic information about your lecture.
+            Enter the basic information about your lecture.
           </p>
         </div>
 
@@ -214,7 +237,7 @@ const InfoTab: React.FC = () => {
             label="Lecture Title"
             value={lectureInfo.title}
             onChange={(value) => handleInputChange('title', value)}
-            placeholder="enter lecture title..."
+            placeholder="Enter lecture title..."
             required
           />
 
@@ -223,7 +246,7 @@ const InfoTab: React.FC = () => {
             value={lectureInfo.description}
             onChange={(value) => handleInputChange('description', value)}
             type="textarea"
-            placeholder="enter a brief description of the lecture..."
+            placeholder="Enter a brief description of the lecture..."
             required
           />
 
@@ -237,13 +260,13 @@ const InfoTab: React.FC = () => {
               <FileUploadButton
                 onFileSelect={handleFileSelect}
                 label="Upload Cover Image"
-                description="supported formats: JPG, PNG, GIF. maximum size: 5MB."
+                description={`Supported formats: ${cloudinaryConfig.allowedFormats.join(', ').toUpperCase()}. Maximum size: ${cloudinaryConfig.maxFileSize}MB.`}
               />
             ) : (
               <div className="mb-4">
                 <ImageUploadPreview
                   image={uploadedImage}
-                  progress={getProgress(uploadedImage.id || 'default')}
+                  progress={uploadedImage.uploading ? getProgress(uploadedImage.id || 'default') : 100}
                   onRemove={removeImage}
                   aspectRatio="video"
                   className="max-w-md"
@@ -269,7 +292,7 @@ const InfoTab: React.FC = () => {
           <div className="flex justify-end pt-6 border-t border-gray-200">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || uploadedImage?.uploading}
               className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               {isSubmitting ? (
