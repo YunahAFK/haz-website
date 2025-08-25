@@ -10,7 +10,7 @@ interface HazardCardProps {
 
 export function HazardCard({ title, image, description, onClick }: HazardCardProps) {
   return (
-    <div 
+    <div
       className="group cursor-pointer bg-white rounded-2xl shadow-sm border border-gray-200/50 overflow-hidden hover:shadow-lg hover:scale-105 transition-all duration-300"
       onClick={onClick}
     >
@@ -25,7 +25,7 @@ export function HazardCard({ title, image, description, onClick }: HazardCardPro
         <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
           {title}
         </h3>
-        <p className="text-gray-600 text-sm leading-relaxed">
+        <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 min-h-[3.0rem]">
           {description}
         </p>
       </div>

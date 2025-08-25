@@ -1,7 +1,7 @@
 // src/pages/Home.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HazardCard } from '../components/hazard/HazardCard';
+import { HazardCard } from '../components/common/HazardCard';
 import { Footer } from '../components/layout/Footer';
 import { Loader2, AlertCircle, BookOpen } from 'lucide-react';
 import {

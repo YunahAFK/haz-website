@@ -9,10 +9,9 @@ import {
 } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 
-// Import new reusable components
-import { ConfirmationModal } from '../components/ui/ConfirmationModal';
-import { ErrorMessage } from '../components/ui/ErrorMessage';
-import { AddItemCard } from '../components/ui/AddItemCard';
+import { ConfirmationModal } from '../components/common/ConfirmationModal';
+import { ErrorMessage } from '../components/common/ErrorMessage';
+import { AddItemCard } from '../components/common/AddItemCard';
 import { AdminLectureCard } from '../components/lecture/AdminLectureCard';
 
 interface Lecture {
