@@ -1,17 +1,19 @@
 // src/pages/AdminHome.tsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HazardCard } from '../components/hazard/HazardCard';
 import { Footer } from '../components/layout/Footer';
-import {
-  Plus, Settings, Users, BarChart3, Shield, Edit3, Trash2,
-  Eye, EyeOff, Loader2, AlertCircle, X
-} from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import {
   getFirestore, collection, getDocs, doc, updateDoc, deleteDoc,
   query, orderBy
 } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
+
+// Import new reusable components
+import { ConfirmationModal } from '../components/ui/ConfirmationModal';
+import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { AddItemCard } from '../components/ui/AddItemCard';
+import { AdminLectureCard } from '../components/lecture/AdminLectureCard';
 
 interface Lecture {
   id: string;
@@ -24,190 +26,6 @@ interface Lecture {
   status: 'draft' | 'published';
   isPublished?: boolean;
 }
-
-// Reusable Modal Component
-const Modal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-}> = ({ isOpen, onClose, title, children }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-};
-
-// Delete Confirmation Modal
-const DeleteModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  lectureName: string;
-  isDeleting: boolean;
-}> = ({ isOpen, onClose, onConfirm, lectureName, isDeleting }) => (
-  <Modal isOpen={isOpen} onClose={() => !isDeleting && onClose()} title="Delete Lecture">
-    <div className="p-6">
-      <div className="flex items-center space-x-3 mb-4">
-        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-          <Trash2 className="w-6 h-6 text-red-600" />
-        </div>
-        <div>
-          <p className="text-gray-900 font-medium">Are you sure you want to delete this lecture?</p>
-          <p className="text-sm text-gray-600">"{lectureName}"</p>
-        </div>
-      </div>
-
-      <p className="text-gray-700 mb-6">This action cannot be undone.</p>
-
-      <div className="flex space-x-3">
-        <button
-          onClick={onClose}
-          disabled={isDeleting}
-          className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onConfirm}
-          disabled={isDeleting}
-          className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center disabled:opacity-50"
-        >
-          {isDeleting ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Deleting...
-            </>
-          ) : (
-            'Delete Lecture'
-          )}
-        </button>
-      </div>
-    </div>
-  </Modal>
-);
-
-// Add New Lecture Card
-const AddLectureCard: React.FC<{ onClick: () => void }> = ({ onClick }) => (
-  <div
-    onClick={onClick}
-    className="bg-white rounded-xl shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-500 hover:shadow-xl transition-all duration-300 cursor-pointer group min-h-[320px] flex flex-col items-center justify-center"
-  >
-    <div className="text-center p-8">
-      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-200 transition-colors">
-        <Plus className="w-8 h-8 text-blue-600" />
-      </div>
-      <h3 className="text-xl font-semibold text-gray-700 mb-2">Add New Lecture</h3>
-      <p className="text-gray-500 text-sm">Create a new educational lecture</p>
-    </div>
-  </div>
-);
-
-// Lecture Card with Admin Controls
-const AdminLectureCard: React.FC<{
-  lecture: Lecture;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
-  onTogglePublish: (id: string) => void;
-  isUpdating?: boolean;
-}> = ({ lecture, onEdit, onDelete, onTogglePublish, isUpdating = false }) => {
-  const isPublished = lecture.status === 'published' || lecture.isPublished;
-  const getImageUrl = () => lecture.image || lecture.images?.[0] ||
-    'https://images.unsplash.com/photo-1689344683256-40b734b440e7?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
-
-  return (
-    <div className="relative group">
-      <HazardCard
-        title={lecture.title}
-        image={getImageUrl()}
-        description={lecture.description || lecture.content?.substring(0, 100) + '...' || 'No description available'}
-        onClick={() => console.log(`Viewing ${lecture.title}`)}
-      />
-
-      {/* Loading Overlay */}
-      {isUpdating && (
-        <div className="absolute inset-0 bg-white bg-opacity-75 rounded-xl flex items-center justify-center z-10">
-          <div className="text-center">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">Updating...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Admin Overlay */}
-      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 rounded-xl">
-        {/* Status Badge */}
-        <div className="absolute top-3 right-3">
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${isPublished
-              ? 'bg-green-100 text-green-800 border border-green-200'
-              : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-            }`}>
-            {isPublished ? 'Published' : 'Draft'}
-          </span>
-        </div>
-
-        {/* Image Count Badge */}
-        {lecture.images && lecture.images.length > 0 && (
-          <div className="absolute top-3 left-3">
-            <span className="bg-blue-100 text-blue-800 border border-blue-200 px-2 py-1 rounded-full text-xs font-medium">
-              {lecture.images.length} image{lecture.images.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
-
-        {/* Admin Controls */}
-        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="flex space-x-2">
-            {[
-              {
-                icon: isPublished ? EyeOff : Eye,
-                action: () => onTogglePublish(lecture.id),
-                title: isPublished ? 'Unpublish' : 'Publish',
-                color: 'text-gray-700'
-              },
-              {
-                icon: Edit3,
-                action: () => onEdit(lecture.id),
-                title: 'Edit',
-                color: 'text-gray-700'
-              },
-              {
-                icon: Trash2,
-                action: () => onDelete(lecture.id),
-                title: 'Delete',
-                color: 'text-red-600'
-              }
-            ].map(({ icon: Icon, action, title, color }, index) => (
-              <button
-                key={index}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  action();
-                }}
-                disabled={isUpdating}
-                className={`bg-white hover:bg-gray-50 ${color} p-2 rounded-lg shadow-md transition-colors disabled:opacity-50`}
-                title={title}
-              >
-                <Icon className="w-4 h-4" />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default function AdminHome() {
   const navigate = useNavigate();
@@ -340,6 +158,15 @@ export default function AdminHome() {
     ? lectures
     : lectures.filter(l => l.status === 'published' || l.isPublished);
 
+  const handleRetryFetch = () => {
+    setError(null);
+    fetchLectures();
+  };
+
+  const handleDismissError = () => {
+    setError(null);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 relative overflow-hidden">
       <main className="relative">
@@ -360,22 +187,13 @@ export default function AdminHome() {
         {/* Error Message */}
         {error && (
           <section className="px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                  <p className="text-red-800">{error}</p>
-                  <button
-                    onClick={() => {
-                      setError(null);
-                      fetchLectures();
-                    }}
-                    className="ml-auto text-red-600 hover:text-red-800 underline"
-                  >
-                    Retry
-                  </button>
-                </div>
-              </div>
+            <div className="max-w-7xl mx-auto mb-6">
+              <ErrorMessage
+                message={error}
+                onRetry={handleRetryFetch}
+                onDismiss={handleDismissError}
+                title="Error Loading Lectures"
+              />
             </div>
           </section>
         )}
@@ -413,7 +231,12 @@ export default function AdminHome() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <AddLectureCard onClick={() => navigate('/admin/create-lecture')} />
+                <AddItemCard
+                  onClick={() => navigate('/admin/create-lecture')}
+                  title="Add New Lecture"
+                  description="Create a new educational lecture"
+                  icon={Plus}
+                />
 
                 {filteredLectures.length === 0 && !isLoading ? (
                   <div className="col-span-2 text-center py-12">
@@ -428,7 +251,7 @@ export default function AdminHome() {
                     <AdminLectureCard
                       key={lecture.id}
                       lecture={lecture}
-                      onEdit={(id) => navigate(`/admin/edit-lecture/${id}`)}
+                      onEdit={(id: string) => navigate(`/admin/edit-lecture/${id}`)}
                       onDelete={handleDeleteLecture}
                       onTogglePublish={handleTogglePublish}
                       isUpdating={updatingLectures.has(lecture.id)}
@@ -441,12 +264,18 @@ export default function AdminHome() {
         </section>
       </main>
 
-      <DeleteModal
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
         isOpen={deleteModal.isOpen}
         onClose={() => !deleteModal.isDeleting && setDeleteModal({ isOpen: false, lecture: null, isDeleting: false })}
         onConfirm={confirmDeleteLecture}
-        lectureName={deleteModal.lecture?.title || ''}
-        isDeleting={deleteModal.isDeleting}
+        title="Delete Lecture"
+        message="Are you sure you want to delete this lecture?"
+        itemName={deleteModal.lecture?.title || ''}
+        isLoading={deleteModal.isDeleting}
+        confirmText="Delete Lecture"
+        variant="danger"
+        icon={<Trash2 className="w-6 h-6" />}
       />
 
       <Footer />

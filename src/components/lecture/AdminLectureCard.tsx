@@ -1,10 +1,10 @@
 // src/components/lecture/AdminLectureCard.tsx
 import React from 'react';
 import { Edit3, Trash2, Eye, EyeOff } from 'lucide-react';
-import { HazardCard } from '../../../hazard/HazardCard';
-import { LoadingOverlay } from '../LoadingOverlay';
-import { StatusBadge } from '../StatusBadge';
-import { ActionButton } from '../ActionButton';
+import { HazardCard } from '../hazard/HazardCard';
+import { LoadingOverlay } from '../ui/LoadingOverlay';
+import { StatusBadge } from '../ui/StatusBadge';
+import { ActionButton } from '../ui/ActionButton';
 
 interface Lecture {
     id: string;
