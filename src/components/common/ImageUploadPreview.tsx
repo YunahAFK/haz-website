@@ -33,7 +33,7 @@ export const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
 
       {/* File Info */}
       <div className="text-xs text-gray-600 mb-2 truncate">
-        {image.file?.name || (image.isExisting ? 'Existing image' : 'Uploaded image')}
+        {image.file?.name || (image.isExisting ? 'Existing Image' : 'Uploaded Image')}
       </div>
 
       {/* Upload Progress */}

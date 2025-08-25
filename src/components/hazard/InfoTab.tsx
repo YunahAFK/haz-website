@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, Loader2, Upload } from 'lucide-react';
 import { useLectureContext } from '../../pages/AdminCreateLecture';
 import { useStatusMessage } from '../../hooks/useStatusMessage';
-import { useImageUpload, UploadedImage } from '../../hooks/useImageUpload';
+import { UploadedImage } from '../../hooks/useImageUpload';
+import { useCloudinaryUpload } from '../../hooks/useCloudinaryUpload';
 import { useFirestore } from '../../hooks/useFirestore';
 import { StatusMessage } from '../common/StatusMessage';
 import { ImageUploadPreview } from '../common/ImageUploadPreview';
@@ -18,15 +19,15 @@ interface LectureInfo {
 }
 
 const InfoTab: React.FC = () => {
-  const { 
-    setLectureId, 
-    navigateToNextTab, 
-    isEditMode, 
-    lectureData, 
+  const {
+    setLectureId,
+    navigateToNextTab,
+    isEditMode,
+    lectureData,
     lectureId,
-    setLectureData 
+    setLectureData
   } = useLectureContext();
-  
+
   const [lectureInfo, setLectureInfo] = useState<LectureInfo>({
     title: '',
     description: '',
@@ -38,9 +39,10 @@ const InfoTab: React.FC = () => {
 
   const { status, setStatusMessage, clearStatus } = useStatusMessage();
   const { createDocument, updateDocument } = useFirestore();
-  
-  const { validateFile, uploadToFirebase, getProgress } = useImageUpload({
-    storagePath: 'lectures/covers',
+
+  const { validateFile, uploadToCloudinary, getProgress } = useCloudinaryUpload({
+    cloudName: "dphrqp6a3",
+    uploadPreset: "haz-image-upload",
     onSuccess: (url) => {
       const updatedInfo = { ...lectureInfo, image: url };
       setLectureInfo(updatedInfo);
@@ -49,8 +51,9 @@ const InfoTab: React.FC = () => {
       }
       clearStatus();
     },
-    onError: (error) => setStatusMessage('error', error, false)
+    onError: (error) => setStatusMessage('error', error, false),
   });
+
 
   // Pre-load data in edit mode
   useEffect(() => {
@@ -60,9 +63,9 @@ const InfoTab: React.FC = () => {
         description: lectureData.description || '',
         image: lectureData.image || ''
       };
-      
+
       setLectureInfo(newLectureInfo);
-      
+
       if (lectureData.image) {
         setUploadedImage({
           file: null,
@@ -71,7 +74,7 @@ const InfoTab: React.FC = () => {
           isExisting: true
         });
       }
-      
+
       setIsDataLoaded(true);
       clearStatus();
     }
@@ -86,11 +89,11 @@ const InfoTab: React.FC = () => {
 
   const handleInputChange = (field: keyof LectureInfo, value: string) => {
     setLectureInfo(prev => ({ ...prev, [field]: value }));
-    
+
     if (isEditMode && lectureData) {
       setLectureData({ [field]: value });
     }
-    
+
     if (status.type === 'error') clearStatus();
   };
 
@@ -112,7 +115,7 @@ const InfoTab: React.FC = () => {
     });
 
     try {
-      await uploadToFirebase(file);
+      await uploadToCloudinary(file);
       setUploadedImage(prev => prev ? { ...prev, uploading: false } : null);
     } catch (error) {
       setUploadedImage(prev => prev ? {
@@ -129,7 +132,7 @@ const InfoTab: React.FC = () => {
     setUploadedImage(null);
     const updatedInfo = { ...lectureInfo, image: '' };
     setLectureInfo(updatedInfo);
-    
+
     if (isEditMode && lectureData) {
       setLectureData({ image: '' });
     }
@@ -169,8 +172,8 @@ const InfoTab: React.FC = () => {
       setTimeout(() => navigateToNextTab(), 1500);
     } catch (error) {
       console.error('Error saving lecture info:', error);
-      setStatusMessage('error', 
-        isEditMode 
+      setStatusMessage('error',
+        isEditMode
           ? 'Failed to update lecture info. Please try again.'
           : 'Failed to save lecture info. Please try again.',
         false
@@ -229,7 +232,7 @@ const InfoTab: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Cover Image
             </label>
-            
+
             {!uploadedImage ? (
               <FileUploadButton
                 onFileSelect={handleFileSelect}
@@ -245,7 +248,7 @@ const InfoTab: React.FC = () => {
                   aspectRatio="video"
                   className="max-w-md"
                 />
-                
+
                 {!uploadedImage.uploading && (
                   <label className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-50 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-100 transition-colors mt-2">
                     <Upload className="w-3 h-3 mr-1 text-gray-600" />

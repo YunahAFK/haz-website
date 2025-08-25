@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { useLectureContext } from '../../pages/AdminCreateLecture';
 import { useStatusMessage } from '../../hooks/useStatusMessage';
-import { useImageUpload, UploadedImage } from '../../hooks/useImageUpload';
 import { useFirestore } from '../../hooks/useFirestore';
 import { StatusMessage } from '../common/StatusMessage';
 import { ImageUploadPreview } from '../common/ImageUploadPreview';
@@ -38,22 +37,11 @@ const ContentTab: React.FC = () => {
     images: [],
     status: 'draft'
   });
-  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const { status, setStatusMessage, clearStatus } = useStatusMessage();
   const { updateDocument, getDocument } = useFirestore();
   
-  const { validateFile, uploadToFirebase, getProgress } = useImageUpload({
-    storagePath: 'lectures/content-images',
-    onSuccess: (url) => {
-      setLectureData(prev => ({
-        ...prev,
-        images: [...prev.images, url]
-      }));
-    },
-    onError: (error) => setStatusMessage('error', error, false)
-  });
 
   // Fetch lecture data when component mounts
   useEffect(() => {
@@ -149,57 +137,8 @@ const ContentTab: React.FC = () => {
 
     const fileArray = Array.from(files);
     
-    for (const file of fileArray) {
-      const validationError = validateFile(file);
-      if (validationError) {
-        setStatusMessage('error', validationError, false);
-        continue;
-      }
-
-      const imageId = generateImageId();
-      
-      setUploadedImages(prev => [...prev, {
-        file,
-        url: null,
-        id: imageId,
-        uploading: true
-      }]);
-
-      try {
-        const downloadURL = await uploadToFirebase(file, imageId);
-        
-        setUploadedImages(prev => 
-          prev.map(img => 
-            img.id === imageId 
-              ? { ...img, url: downloadURL, uploading: false }
-              : img
-          )
-        );
-      } catch (error) {
-        setUploadedImages(prev => 
-          prev.map(img => 
-            img.id === imageId 
-              ? { ...img, uploading: false, error: 'Upload failed' }
-              : img
-          )
-        );
-      }
-    }
-
+  
     event.target.value = '';
-  };
-
-  const removeImage = (imageId: string) => {
-    const imageToRemove = uploadedImages.find(img => img.id === imageId);
-    
-    if (imageToRemove?.url) {
-      setLectureData(prev => ({
-        ...prev,
-        images: prev.images.filter(url => url !== imageToRemove.url)
-      }));
-    }
-
-    setUploadedImages(prev => prev.filter(img => img.id !== imageId));
   };
 
   const handleNextToActivity = async () => {
@@ -286,21 +225,6 @@ const ContentTab: React.FC = () => {
               label="Upload Images"
               description="supported formats: JPG, PNG, GIF. maximum size: 5MB per image."
             />
-
-            {/* Uploaded Images Preview */}
-            {uploadedImages.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {uploadedImages.map((image) => (
-                  <ImageUploadPreview
-                    key={image.id}
-                    image={image}
-                    progress={getProgress(image.id || 'default')}
-                    onRemove={() => removeImage(image.id!)}
-                    aspectRatio="square"
-                  />
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Navigation Button */}
