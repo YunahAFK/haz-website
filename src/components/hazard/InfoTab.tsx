@@ -182,7 +182,7 @@ const InfoTab: React.FC = () => {
       if (isEditMode && lectureId) {
         await updateDocument('lectures', lectureId, lectureInfo);
         setLectureData(lectureInfo);
-        setStatusMessage('success', 'Lecture info updated successfully!');
+        setStatusMessage('success', 'lecture info updated successfully!');
       } else {
         const docId = await createDocument('lectures', {
           ...lectureInfo,
@@ -225,9 +225,6 @@ const InfoTab: React.FC = () => {
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">
             {isEditMode ? 'Edit Lecture Information' : 'Lecture Information'}
           </h2>
-          <p className="text-gray-600">
-            Enter the basic information about your lecture.
-          </p>
         </div>
 
         <StatusMessage type={status.type} message={status.message} />
@@ -237,8 +234,9 @@ const InfoTab: React.FC = () => {
             label="Lecture Title"
             value={lectureInfo.title}
             onChange={(value) => handleInputChange('title', value)}
-            placeholder="Enter lecture title..."
+            placeholder="enter lecture title..."
             required
+            maxLength={64}
           />
 
           <FormInput
@@ -246,8 +244,9 @@ const InfoTab: React.FC = () => {
             value={lectureInfo.description}
             onChange={(value) => handleInputChange('description', value)}
             type="textarea"
-            placeholder="Enter a brief description of the lecture..."
+            placeholder="enter a brief description of the lecture..."
             required
+            maxLength={256}
           />
 
           {/* Image Upload Section */}

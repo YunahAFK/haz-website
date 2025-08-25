@@ -10,6 +10,7 @@ interface FormInputProps {
     required?: boolean;
     rows?: number;
     className?: string;
+    maxLength?: number;
 }
 
 export const FormInput: React.FC<FormInputProps> = ({
@@ -20,7 +21,8 @@ export const FormInput: React.FC<FormInputProps> = ({
     placeholder,
     required = false,
     rows = 4,
-    className = ""
+    className = "",
+    maxLength
 }) => {
     const id = label.toLowerCase().replace(/\s+/g, '-');
     const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
@@ -36,7 +38,8 @@ export const FormInput: React.FC<FormInputProps> = ({
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     rows={rows}
-                    className={`${baseClasses} resize-none ${type === 'textarea' ? 'font-mono text-sm' : ''}`}
+                    maxLength={maxLength}
+                    className={`${baseClasses} resize-none`}
                     placeholder={placeholder}
                     required={required}
                 />
@@ -46,6 +49,7 @@ export const FormInput: React.FC<FormInputProps> = ({
                     id={id}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
+                    maxLength={maxLength}
                     className={baseClasses}
                     placeholder={placeholder}
                     required={required}
