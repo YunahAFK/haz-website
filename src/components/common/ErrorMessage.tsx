@@ -1,4 +1,4 @@
-// src/components/ui/ErrorMessage.tsx
+// src/components/common/ErrorMessage.tsx
 import React from 'react';
 import { AlertCircle, X, RefreshCw } from 'lucide-react';
 

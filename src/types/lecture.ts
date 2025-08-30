@@ -4,16 +4,30 @@ export interface Lecture {
     title: string;
     description: string;
     content: string;
-    image: string;
-    images: string[];
-    status: 'draft' | 'published';
-    createdAt: Date;
-    updatedAt: Date;
-    // Optional legacy field for backward compatibility
+    image?: string;
+    images?: string[];
+    status?: 'draft' | 'published';
+    createdAt: any;
+    updatedAt: any;
     isPublished?: boolean;
 }
 
-// Utility function to normalize lecture data from Firestore
+export interface Activity {
+  id: string;
+  type: 'multiple-choice' | 'short-answer';
+  question: string;
+  options?: string[];
+  correctAnswer?: string;
+  correctOption?: number;
+  createdAt: any;
+}
+
+export interface UserAnswer {
+  activityId: string;
+  answer: string | number;
+  isCorrect: boolean;
+}
+
 export const normalizeLectureData = (data: any): Lecture => ({
     id: data.id || '',
     title: data.title || 'Untitled Lecture',
@@ -27,7 +41,7 @@ export const normalizeLectureData = (data: any): Lecture => ({
     isPublished: data.isPublished ?? false
 });
 
-// For creating new lectures
+// for creating new lectures
 export const createEmptyLecture = (): Omit<Lecture, 'id'> => ({
     title: '',
     description: '',
