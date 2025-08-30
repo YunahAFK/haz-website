@@ -238,7 +238,7 @@ const ActivityTab: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <LoadingSpinner message="Loading activities..." />
+          <LoadingSpinner message="Loading Activities..." />
         </div>
       </div>
     );
@@ -252,7 +252,7 @@ const ActivityTab: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Learning Activities</h2>
-              <p className="text-gray-600">Create interactive questions to engage your students.</p>
+              <p className="text-gray-600">create interactive questions to engage your students.</p>
             </div>
             <button
               onClick={() => setShowForm(true)}
@@ -293,7 +293,7 @@ const ActivityTab: React.FC = () => {
             <EmptyState
               icon={<Plus className="w-8 h-8 text-gray-400" />}
               title="No Activities Yet"
-              description="Create your first learning activity to engage your students."
+              description="create your first learning activity to engage your students."
               action={{
                 label: "Add Your First Question",
                 onClick: () => setShowForm(true)

@@ -318,7 +318,7 @@ const TabContent: React.FC = () => {
                 <div className="flex items-center justify-center">
                     <div className="text-center">
                         <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                        <p className="text-gray-600">Loading lecture data...</p>
+                        <p className="text-gray-600">Loading Lecture Data...</p>
                     </div>
                 </div>
             </div>

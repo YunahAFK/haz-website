@@ -52,7 +52,7 @@ export const useActivities = (lectureId: string | null) => {
 
         try {
             if (editingId) {
-                // Update existing activity
+                // update existing activity
                 const docRef = doc(firestore, 'lectures', lectureId, 'activities', editingId);
                 await updateDoc(docRef, {
                     ...activityData,
@@ -67,7 +67,7 @@ export const useActivities = (lectureId: string | null) => {
 
                 return 'Question updated successfully!';
             } else {
-                // Add new activity
+                // add new activity
                 const activitiesRef = collection(firestore, 'lectures', lectureId, 'activities');
                 const docRef = await addDoc(activitiesRef, {
                     ...activityData,
@@ -109,7 +109,7 @@ export const useActivities = (lectureId: string | null) => {
     useEffect(() => {
         if (lectureId) {
             fetchActivities().catch(() => {
-                // Error is handled in fetchActivities
+                // error is handled in fetchActivities
             });
         }
     }, [lectureId]);

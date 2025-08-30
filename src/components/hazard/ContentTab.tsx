@@ -270,78 +270,18 @@ const ContentTab: React.FC = () => {
           <StatusMessage type={status.type} message={status.message} />
 
           <div className="space-y-6">
-            {/* Title Field */}
-            <FormInput
-              label="Section Title"
-              value={lectureData.title}
-              onChange={(value) => setLectureData(prev => ({ ...prev, title: value }))}
-              type="text"
-              placeholder="Enter your lecture title..."
-              required
-            />
-
             {/* Rich Text Content Editor */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Section Content
-              </label>
-              
               <div className="mb-2">
                 <ReactQuill
                   value={lectureData.content}
                   onChange={(content) => setLectureData(prev => ({ ...prev, content }))}
                   modules={quillModules}
                   formats={quillFormats}
-                  placeholder="Start writing your lecture content here..."
+                  placeholder="start writing your lecture content here..."
                   theme="snow"
                 />
               </div>
-              
-              <p className="text-xs text-gray-500">
-                Use the toolbar above to format your text. You can create headers, add emphasis, create lists, and more.
-              </p>
-            </div>
-
-            {/* Image Upload Section */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Content Images
-              </label>
-              
-              <FileUploadButton
-                onFileSelect={handleFileSelect}
-                multiple
-                label="Upload Images"
-                description="Supported formats: JPG, PNG, GIF. Maximum size: 5MB per image."
-              />
-              
-              {lectureData.images.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {lectureData.images.map((imageUrl, index) => (
-                      <div key={index} className="relative group">
-                        <img
-                          src={imageUrl}
-                          alt={`Content image ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-gray-200"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newImages = lectureData.images.filter((_, i) => i !== index);
-                            setLectureData(prev => ({ ...prev, images: newImages }));
-                          }}
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Remove image"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Word Count */}
