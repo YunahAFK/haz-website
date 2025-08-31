@@ -1,16 +1,12 @@
 // src/components/hazard/ContentTab.tsx
-import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowRight } from 'lucide-react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowRight, Layers } from 'lucide-react';
 import { useLectureContext } from '../../pages/AdminCreateLecture';
 import { useStatusMessage } from '../../hooks/useStatusMessage';
 import { useFirestore } from '../../hooks/useFirestore';
 import { StatusMessage } from '../common/StatusMessage';
-import { ImageUploadPreview } from '../common/ImageUploadPreview';
-import { FileUploadButton } from '../common/FileUploadButton';
-import { FormInput } from '../common/FormInput';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import RichTextEditor, { RichTextEditorRef } from '../common/RichTextEditor';
 
 interface LectureData {
   title: string;
@@ -40,67 +36,10 @@ const ContentTab: React.FC = () => {
     status: 'draft'
   });
   const [isLoading, setIsLoading] = useState(true);
+  const editorRef = useRef<RichTextEditorRef>(null);
 
   const { status, setStatusMessage, clearStatus } = useStatusMessage();
   const { updateDocument, getDocument } = useFirestore();
-
-  // Quill editor configuration
-  const quillModules = useMemo(() => ({
-    toolbar: {
-      container: [
-        [{ 'header': [1, 2, 3, false] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ 'color': [] }, { 'background': [] }],
-        [{ 'align': [] }],
-        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-        [{ 'indent': '-1'}, { 'indent': '+1' }],
-        ['blockquote', 'code-block'],
-        ['link', 'image'],
-        ['clean'] // remove formatting button
-      ]
-    },
-    clipboard: {
-      matchVisual: false
-    }
-  }), []);
-
-  const quillFormats = [
-    'header',
-    'bold', 'italic', 'underline', 'strike',
-    'color', 'background',
-    'align',
-    'list', 'bullet', 'indent',
-    'blockquote', 'code-block',
-    'link', 'image'
-  ];
-
-  // Custom styles for the Quill editor
-  const editorStyles = `
-    .ql-editor {
-      min-height: 300px;
-      font-size: 14px;
-      line-height: 1.6;
-    }
-    
-    .ql-toolbar {
-      border-top: 1px solid #ccc;
-      border-left: 1px solid #ccc;
-      border-right: 1px solid #ccc;
-      border-radius: 8px 8px 0 0;
-    }
-    
-    .ql-container {
-      border-bottom: 1px solid #ccc;
-      border-left: 1px solid #ccc;
-      border-right: 1px solid #ccc;
-      border-radius: 0 0 8px 8px;
-    }
-
-    .ql-editor.ql-blank::before {
-      color: #9ca3af;
-      font-style: italic;
-    }
-  `;
 
   // Fetch lecture data when component mounts
   useEffect(() => {
@@ -194,6 +133,10 @@ const ContentTab: React.FC = () => {
     }
   };
 
+  const handleContentChange = (content: string) => {
+    setLectureData(prev => ({ ...prev, content }));
+  };
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
@@ -202,7 +145,7 @@ const ContentTab: React.FC = () => {
     
     // TODO: Implement image upload logic
     // You'll want to upload to your storage service and get URLs back
-    // Then add those URLs to lectureData.images
+    // then add those URLs to lectureData.images
     
     event.target.value = '';
   };
@@ -229,84 +172,61 @@ const ContentTab: React.FC = () => {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <LoadingSpinner message="Loading lecture data..." />
+          <LoadingSpinner message="Loading Lecture Data..." />
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      {/* Add custom styles */}
-      <style dangerouslySetInnerHTML={{ __html: editorStyles }} />
-      
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-2">Lecture Content</h2>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  lectureData.status === 'published' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {lectureData.status === 'published' ? 'Published' : 'Draft'}
-                </span>
-              </div>
-            </div>
-            
-            {/* Lecture Info Display */}
-            {lectureData.description && (
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">{lectureData.description}</p>
-              </div>
-            )}
-          </div>
-
-          <StatusMessage type={status.type} message={status.message} />
-
-          <div className="space-y-6">
-            {/* Rich Text Content Editor */}
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
             <div>
-              <div className="mb-2">
-                <ReactQuill
-                  value={lectureData.content}
-                  onChange={(content) => setLectureData(prev => ({ ...prev, content }))}
-                  modules={quillModules}
-                  formats={quillFormats}
-                  placeholder="start writing your lecture content here..."
-                  theme="snow"
-                />
-              </div>
-            </div>
-
-            {/* Word Count */}
-            {lectureData.content && (
-              <div className="text-right">
-                <span className="text-xs text-gray-500">
-                  {lectureData.content.replace(/<[^>]*>/g, '').length} characters
-                </span>
-              </div>
-            )}
-
-            {/* Navigation Button */}
-            <div className="flex justify-end pt-6 border-t border-gray-200">
-              <button
-                onClick={handleNextToActivity}
-                className="inline-flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                <span>Next: Activity</span>
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </button>
+              <h2 className="text-2xl font-semibold text-gray-900">Lecture Content</h2>
             </div>
           </div>
         </div>
+
+        <StatusMessage type={status.type} message={status.message} />
+
+        <div className="space-y-6">
+          {/* Rich Text Content Editor */}
+          <div>
+            <RichTextEditor
+              ref={editorRef}
+              value={lectureData.content}
+              onChange={handleContentChange}
+              placeholder="Start writing your lecture content here... use the slide separator tool to mark slide breaks."
+              minHeight={300}
+              showSlideSeparator={true}
+            />
+          </div>
+
+          {/* Word Count */}
+          {lectureData.content && (
+            <div className="text-right">
+              <span className="text-xs text-gray-500">
+                {lectureData.content.replace(/<[^>]*>/g, '').length} characters
+              </span>
+            </div>
+          )}
+
+          {/* Navigation Button */}
+          <div className="flex justify-end pt-6 border-t border-gray-200">
+            <button
+              onClick={handleNextToActivity}
+              className="inline-flex items-center px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <span>Next: Activity</span>
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </button>
+          </div>
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 
