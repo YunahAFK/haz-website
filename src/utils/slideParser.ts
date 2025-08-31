@@ -1,81 +1,102 @@
-import { Lecture, Activity } from '../types/lecture';
-import { Slide } from '../types/presentation';
+// src/utils/slideParser.ts
+import { Slide, Activity } from '../types/presentation';
+import { Lecture } from '../types/lecture';
+import { splitContentIntoSlides } from './contentProcessor';
 
-export const parseContentToSlides = (lecture: Lecture, activities: Activity[]): Slide[] => {
-    const slides: Slide[] = [];
+export interface ParsedSlideContent {
+  title?: string;
+  content: string;
+  notes?: string;
+}
 
-    // Title slide
-    slides.push({
-        id: 'title',
-        type: 'title',
-        title: lecture.title,
-        content: lecture.description
-    });
+/**
+ * Parses individual slide content to extract title, content, and speaker notes
+ */
+export const parseSlideContent = (rawContent: string): ParsedSlideContent => {
+  let content = rawContent.trim();
+  let title: string | undefined;
+  let notes: string | undefined;
 
-    // Parse HTML content into slides
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(lecture.content, 'text/html');
+  // Extract speaker notes (content between <!-- NOTES --> and <!-- /NOTES -->)
+  const notesMatch = content.match(/<!--\s*NOTES\s*-->([\s\S]*?)<!--\s*\/NOTES\s*-->/i);
+  if (notesMatch) {
+    notes = notesMatch[1].trim();
+    content = content.replace(notesMatch[0], '').trim();
+  }
 
-    // Split by headings (h1, h2, h3) to create slides
-    const elements = Array.from(doc.body.children);
-    let currentSlide: Slide | null = null;
-    let slideCounter = 1;
+  // Extract title from first heading if it exists
+  const headingMatch = content.match(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>/i);
+  if (headingMatch) {
+    title = headingMatch[1].trim();
+  }
 
-    elements.forEach((element) => {
-        const tagName = element.tagName.toLowerCase();
+  return {
+    title,
+    content,
+    notes
+  };
+};
 
-        if (['h1', 'h2', 'h3'].includes(tagName)) {
-            // Start a new slide
-            if (currentSlide) {
-                slides.push(currentSlide);
-            }
+/**
+ * Converts lecture content into slides by splitting on the slide marker
+ */
+export const parseContentIntoSlides = (
+  lectureContent: string,
+  lectureTitle: string
+): Slide[] => {
+  if (!lectureContent) return [];
 
-            currentSlide = {
-                id: `slide-${slideCounter++}`,
-                type: 'content',
-                title: element.textContent || '',
-                content: ''
-            };
-        } else if (currentSlide) {
-            // Add content to current slide
-            if (element.tagName.toLowerCase() === 'img') {
-                // Create separate image slide
-                slides.push(currentSlide);
-                slides.push({
-                    id: `slide-${slideCounter++}`,
-                    type: 'image',
-                    title: element.getAttribute('alt') || 'Image',
-                    image: element.getAttribute('src') || ''
-                });
-                currentSlide = null;
-            } else {
-                currentSlide.content += element.outerHTML;
-            }
-        } else {
-            // Create a content slide if no heading was found
-            currentSlide = {
-                id: `slide-${slideCounter++}`,
-                type: 'content',
-                title: 'Content',
-                content: element.outerHTML
-            };
-        }
-    });
+  const slideContents = splitContentIntoSlides(lectureContent);
+  
+  return slideContents.map((rawContent, index) => {
+    const parsed = parseSlideContent(rawContent);
+    
+    return {
+      id: `slide-${index}`,
+      title: parsed.title || lectureTitle,
+      content: parsed.content,
+      type: 'content' as const,
+      slideNumber: index + 1,
+      totalSlides: slideContents.length,
+      notes: parsed.notes
+    };
+  });
+};
 
-    // Add the last slide if it exists
-    if (currentSlide) {
-        slides.push(currentSlide);
-    }
+/**
+ * Converts lecture and activities into presentation slides
+ */
+export const parseContentToSlides = (
+  lecture: Lecture,
+  activities: Activity[] = []
+): Slide[] => {
+  const contentSlides = parseContentIntoSlides(lecture.content, lecture.title);
+  
+  // If there are activities, add them as additional slides
+  const activitySlides: Slide[] = activities.map((activity, index) => ({
+    id: `activity-${activity.id}`,
+    title: `Activity ${index + 1}`,
+    content: `<div class="text-center"><h2>Time for an Activity!</h2><p>Get ready to test your knowledge.</p></div>`,
+    type: 'activity' as const,
+    slideNumber: contentSlides.length + index + 1,
+    totalSlides: contentSlides.length + activities.length,
+    activity: activity
+  }));
 
-    // Add activity slides
-    activities.forEach((activity, index) => {
-        slides.push({
-            id: `activity-${index}`,
-            type: 'activity',
-            title: `Activity ${index + 1}`,
-            activity
-        });
-    });
+  return [...contentSlides, ...activitySlides];
+};
 
-    return slides;
+/**
+ * Checks if content contains slide markers
+ */
+export const hasSlideMarkers = (content: string): boolean => {
+  return content.includes('---SLIDE---');
+};
+
+/**
+ * Gets slide count from content
+ */
+export const getSlideCount = (content: string): number => {
+  if (!hasSlideMarkers(content)) return 1;
+  return splitContentIntoSlides(content).length;
 };

@@ -1,4 +1,4 @@
-// Updated LectureDetail.tsx with slide generation modal
+// src/pages/LectureDetail.tsx
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Monitor } from 'lucide-react';
@@ -11,10 +11,13 @@ import { LectureContent } from '../components/lecture/user/LectureContent';
 import { ProgressBar } from '../components/common/ProgressBar';
 import { ActivityComponent } from '../components/lecture/user/ActivityComponent';
 import { QuizResults } from '../components/lecture/user/QuizResults';
+import { parseContentToSlides } from '../utils/slideParser';
+import { PresentationMode } from '../components/PresentationMode';
 
 export default function LectureDetail() {
   const { lectureId } = useParams<{ lectureId: string }>();
   const [showActivities, setShowActivities] = useState(false);
+  const [presentationMode, setPresentationMode] = useState(false);
 
   const { lecture, isLoading, error } = useLecture(lectureId);
   const {
@@ -36,12 +39,30 @@ export default function LectureDetail() {
     setShowActivities(true);
   };
 
+  const startPresentation = () => {
+    if (activities.length === 0) {
+      fetchActivities();
+    }
+    setPresentationMode(true);
+  };
+
   if (isLoading) {
     return <LoadingSpinner message="Loading Content..." />;
   }
 
   if (error || !lecture) {
     return <ErrorDisplay error={error || 'Lecture not found'} />;
+  }
+
+  if (presentationMode) {
+    const slides = parseContentToSlides(lecture, activities);
+    return (
+      <PresentationMode
+        slides={slides}
+        onExit={() => setPresentationMode(false)}
+        onActivityAnswer={handleAnswerSubmit}
+      />
+    );
   }
 
   return (
