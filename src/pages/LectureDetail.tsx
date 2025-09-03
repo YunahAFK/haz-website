@@ -1,8 +1,7 @@
 // src/pages/LectureDetail.tsx
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Monitor } from 'lucide-react';
-import { useLecture } from '../hooks/useLecture';
+import { useLecture } from '../hooks/(LectureDetail)/useLecture';
 import { useActivities } from '../hooks/useLectureActivities';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { ErrorDisplay } from '../components/common/ErrorDisplay';

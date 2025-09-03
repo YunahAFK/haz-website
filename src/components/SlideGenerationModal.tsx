@@ -1,7 +1,8 @@
 // src/components/SlideGenerationModal.tsx
 import React, { useState, useEffect } from 'react';
 import { X, Wand2, Split, List, Settings } from 'lucide-react';
-import { Lecture, Activity } from '../types/lecture';
+import { Lecture } from '../types/common/lecture';
+import { Activity } from '../types/(LectureDetail)/activity';
 import { Slide } from '../types/presentation';
 import { 
   parseContentToSlidesEnhanced,

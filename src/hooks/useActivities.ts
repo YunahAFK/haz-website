@@ -12,7 +12,7 @@ import {
     query,
     orderBy
 } from 'firebase/firestore';
-import { Activity } from '../types/activity';
+import { Activity } from '../types/(LectureDetail)/activity';
 
 export const useActivities = (lectureId: string | null) => {
     const [activities, setActivities] = useState<Activity[]>([]);

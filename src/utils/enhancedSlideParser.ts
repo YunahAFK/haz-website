@@ -1,5 +1,6 @@
 // src/utils/enhancedSlideParser.ts
-import { Lecture, Activity } from '../types/lecture';
+import { Lecture } from '../types/lecture';
+import { Activity } from '../types/(LectureDetail)/activity';
 import { Slide } from '../types/presentation';
 
 // Solution 1: Smart Content Chunking

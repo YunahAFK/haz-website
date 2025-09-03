@@ -1,6 +1,6 @@
 // src/hooks/useActivityForm.ts
 import { useState } from 'react';
-import { Activity, ActivityOption } from '../types/activity';
+import { Activity, ActivityOption } from '../types/(LectureDetail)/activity';
 
 export const useActivityForm = (initialActivity?: Activity) => {
     const [type, setType] = useState<'multiple-choice' | 'short-answer'>(

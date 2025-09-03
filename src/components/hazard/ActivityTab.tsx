@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Plus, Edit3, Trash2, Save, Loader2 } from 'lucide-react';
 import { useLectureContext } from '../../pages/AdminCreateLecture';
 import { useActivities } from '../../hooks/useActivities';
-import { Activity } from '../../types/activity';
+import { Activity } from '../../types/(LectureDetail)/activity';
 import { useActivityForm } from '../../hooks/useActivityForm';
 import { useStatusMessage } from '../../hooks/useStatusMessage';
 import { StatusMessage } from '../common/StatusMessage';

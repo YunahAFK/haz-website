@@ -1,7 +1,7 @@
 // src/components/activity/MultipleChoiceOptions.tsx
 import React from 'react';
 import { CheckCircle, Circle, X } from 'lucide-react';
-import { ActivityOption } from '../../types/activity';
+import { ActivityOption } from '../../types/(LectureDetail)/activity';
 
 interface MultipleChoiceOptionsProps {
     options: ActivityOption[];

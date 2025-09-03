@@ -1,7 +1,7 @@
 // src/components/activity/ActivityPreview.tsx
 import React from 'react';
 import { CheckCircle, Circle } from 'lucide-react';
-import { Activity } from '../../types/activity';
+import { Activity } from '../../types/(LectureDetail)/activity';
 
 interface ActivityPreviewProps {
     activity: Activity;

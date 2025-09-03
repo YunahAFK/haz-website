@@ -1,5 +1,5 @@
 // src/types/presentation.ts
-import { Activity } from './lecture';
+import { Activity } from './(LectureDetail)/activity';
 
 export interface Slide {
     id: string;
@@ -17,4 +17,4 @@ export interface PresentationSettings {
     theme: 'light' | 'dark' | 'blue';
 }
 
-export type { Activity } from './lecture';
+export type { Activity } from './(LectureDetail)/activity';
