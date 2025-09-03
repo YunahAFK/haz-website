@@ -3,6 +3,11 @@ import { useState, useEffect } from 'react';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { Lecture } from '../types/lecture';
 
+/**
+ * Fetches a single lecture document from Firestore by ID.
+ * Returns lecture data, loading/error states.
+ */
+
 export const useLecture = (lectureId: string | undefined) => {
     const [lecture, setLecture] = useState<Lecture | null>(null);
     const [isLoading, setIsLoading] = useState(true);

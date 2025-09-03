@@ -32,16 +32,7 @@ export function Navigation() {
             <div className="flex items-baseline space-x-4">
               <Link to="/" className="text-gray-900 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
                 Home
-              </Link>
-              <Link to="/hazards" className="text-gray-900 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                Hazards
-              </Link>
-              <Link to="/preparedness" className="text-gray-900 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                Preparedness
-              </Link>
-              <Link to="/alerts" className="text-gray-900 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
-                Alerts
-              </Link>
+              </Link> 
             </div>
 
             {/* Authentication Section */}
@@ -103,7 +94,7 @@ export function Navigation() {
             </div>
           </div>
 
-          {/* Mobile menu button */}
+          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
@@ -124,27 +115,6 @@ export function Navigation() {
                 onClick={() => setIsOpen(false)}
               >
                 Home
-              </Link>
-              <Link
-                to="/hazards"
-                className="text-gray-900 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
-                onClick={() => setIsOpen(false)}
-              >
-                Hazards
-              </Link>
-              <Link
-                to="/preparedness"
-                className="text-gray-900 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
-                onClick={() => setIsOpen(false)}
-              >
-                Preparedness
-              </Link>
-              <Link
-                to="/alerts"
-                className="text-gray-900 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
-                onClick={() => setIsOpen(false)}
-              >
-                Alerts
               </Link>
 
               {/* Mobile Authentication Section */}
